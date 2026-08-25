@@ -1,0 +1,6 @@
+{
+  "name": "Legio Invicta",
+  "description": "Pixel-art strategy camp simulator of the Roman Republic legion. Train legionaries, build castra, choose tactics, and lead your legion to become #1 in Rome.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

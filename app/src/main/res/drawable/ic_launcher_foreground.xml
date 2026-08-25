@@ -1,0 +1,68 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:pivotX="54"
+        android:pivotY="54"
+        android:scaleX="0.75"
+        android:scaleY="0.75">
+        <!-- Laurel Wreath Left -->
+        <path
+            android:fillColor="#FFD700"
+            android:pathData="M38,32 C34,36 30,44 30,54 C30,64 34,72 38,76 C37,73 36,68 36,63 C34,64 32,63 31,60 C32,56 34,55 36,54 C36,49 37,44 38,39 Z" />
+        <!-- Laurel Wreath Right -->
+        <path
+            android:fillColor="#FFD700"
+            android:pathData="M70,32 C74,36 78,44 78,54 C78,64 74,72 70,76 C71,73 72,68 72,63 C74,64 76,63 77,60 C76,56 74,55 72,54 C72,49 71,44 70,39 Z" />
+        <!-- Roman Helmet Crest (Transverse Plume) -->
+        <path
+            android:fillColor="#E53935"
+            android:pathData="M44,22 C48,18 60,18 64,22 C66,25 64,28 62,30 L46,30 C44,28 42,25 44,22 Z" />
+        <path
+            android:fillColor="#FFEB3B"
+            android:pathData="M49,28 L59,28 L58,32 L50,32 Z" />
+        <!-- Helmet Bowl (Galea) -->
+        <path
+            android:fillColor="#FFC107"
+            android:pathData="M42,34 C42,28 66,28 66,34 L67,48 C67,54 62,58 54,58 C46,58 41,54 41,48 Z" />
+        <!-- Cheek Guards -->
+        <path
+            android:fillColor="#FFA000"
+            android:pathData="M42,48 L44,64 L49,60 L48,48 Z" />
+        <path
+            android:fillColor="#FFA000"
+            android:pathData="M66,48 L64,64 L59,60 L60,48 Z" />
+        <!-- Helmet Brow Band & Rivets -->
+        <path
+            android:fillColor="#FFE082"
+            android:pathData="M41,44 L67,44 L67,47 L41,47 Z" />
+        <path
+            android:fillColor="#3E2723"
+            android:pathData="M48,49 L60,49 L58,54 L50,54 Z" />
+        <!-- SPQR Plaque Base -->
+        <path
+            android:fillColor="#FFD700"
+            android:pathData="M43,68 L65,68 L67,76 L41,76 Z" />
+        <path
+            android:fillColor="#8A0C17"
+            android:pathData="M45,70 L63,70 L64,74 L44,74 Z" />
+        <path
+            android:fillColor="#FFD700"
+            android:pathData="M46,71 L62,71 L62,73 L46,73 Z" />
+        <!-- Crossed Gladius Swords -->
+        <path
+            android:fillColor="#ECEFF1"
+            android:pathData="M34,78 L42,70 L45,73 L37,81 Z" />
+        <path
+            android:fillColor="#ECEFF1"
+            android:pathData="M74,78 L66,70 L63,73 L71,81 Z" />
+        <path
+            android:fillColor="#FFA000"
+            android:pathData="M33,79 L31,81 L33,83 L35,81 Z" />
+        <path
+            android:fillColor="#FFA000"
+            android:pathData="M75,79 L77,81 L75,83 L73,81 Z" />
+    </group>
+</vector>
