@@ -1,0 +1,42 @@
+name: Create PR from feature branch
+
+on:
+  push:
+    branches:
+      - feature/refactor-gamevm-and-ci
+  workflow_dispatch:
+
+jobs:
+  create_pr:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create pull request to main
+        uses: peter-evans/create-pull-request@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "chore(ci): create PR from feature/refactor-gamevm-and-ci to main"
+          title: "Feature: refactor GameViewModel -> GameEngine + LegionRepository, add CI and DB migration"
+          body: |
+            Что сделано
+            - Вынесена бизнес‑логика в GameEngine (battle odds, auto‑assist, replenish/equip helpers).
+            - Добавлен LegionRepository (интерфейс) и LegionRepositoryImpl (реализация поверх Room).
+            - Добавлен GameAudioService — интерфейс для абстрагирования звуковых вызовов.
+            - AppDatabase: повышена версия до 2, добавлен TypeConverter (Moshi) и skeleton миграция 1→2 (чтобы избежать destructive fallback).
+            - Добавлен Converters.kt (Room TypeConverter для List<String>).
+            - Обновлён CI workflow: кеш Gradle, запуск unit tests, сборка APK.
+            - README обновлён с инструкциями по сборке и CI.
+
+            Замечания
+            - Миграция 1→2 — skeleton: при изменениях схемы нужно реализовать SQL‑трансформации.
+            - ViewModel всё ещё содержит части логики — финальный шаг (переместить оставшееся в Engine/Repo и заменить вызовы SoundManager на GameAudioService) будет выполнен в этой ветке до мерджа.
+
+            Тестирование локально
+            - ./gradlew test
+            - ./gradlew assembleDebug
+
+          base: main
+          head: feature/refactor-gamevm-and-ci
+          labels: "autopr-created, refactor"
+          draft: false
