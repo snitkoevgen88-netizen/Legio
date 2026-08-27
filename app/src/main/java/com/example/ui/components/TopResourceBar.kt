@@ -40,6 +40,7 @@ fun TopResourceBar(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .statusBarsPadding()
                 .padding(horizontal = 12.dp, vertical = 6.dp)
         ) {
             // Top row: Season & Year banner + Sound toggle + Golden Age tag

@@ -5,6 +5,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -20,6 +21,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.model.Cohort
 import com.example.model.EquipmentItem
+import com.example.model.EquipmentMaterial
+import com.example.model.EquipmentType
 import com.example.model.LegionResources
 import com.example.ui.theme.*
 
@@ -29,11 +32,21 @@ fun ArmoryScreen(
     cohorts: List<Cohort>,
     resources: LegionResources,
     onCraftItem: (String) -> Unit,
+    onTemperItem: (String) -> Unit = {},
+    onSalvageItem: (String) -> Unit = {},
     onEquipItem: (String, String?) -> Unit,
     onAutoEquipAll: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var selectedCohortForEquip by remember { mutableStateOf<String?>(cohorts.firstOrNull()?.id) }
+    var selectedTypeFilter by remember { mutableStateOf<EquipmentType?>(null) }
+
+    val filteredEquipment = if (selectedTypeFilter != null) {
+        equipment.filter { it.type == selectedTypeFilter }
+    } else {
+        equipment
+    }
+
     val craftedCount = equipment.count { it.isCrafted }
 
     LazyColumn(
@@ -76,7 +89,7 @@ fun ArmoryScreen(
                                     fontWeight = FontWeight.Bold
                                 )
                                 Text(
-                                    text = "Изготовлено снаряжения: $craftedCount / ${equipment.size}",
+                                    text = "Выковано: $craftedCount / ${equipment.size} предметов",
                                     color = RomanTextGold,
                                     fontSize = 11.sp
                                 )
@@ -108,7 +121,7 @@ fun ArmoryScreen(
 
                     Spacer(modifier = Modifier.height(12.dp))
                     Text(
-                        text = "Выберите когорту для ручной примерки:",
+                        text = "Выберите когорту для экипировки:",
                         color = RomanTextMuted,
                         fontSize = 11.sp
                     )
@@ -150,18 +163,56 @@ fun ArmoryScreen(
                             }
                         }
                     }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+                    // Filter Chips
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        item {
+                            FilterChip(
+                                selected = selectedTypeFilter == null,
+                                onClick = { selectedTypeFilter = null },
+                                label = { Text("Все типы (${equipment.size})", fontSize = 11.sp) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = RomanGold,
+                                    selectedLabelColor = RomanDarkSurface,
+                                    containerColor = Color(0xFF241B15),
+                                    labelColor = RomanGoldLight
+                                )
+                            )
+                        }
+                        items(EquipmentType.entries) { type ->
+                            val count = equipment.count { it.type == type }
+                            FilterChip(
+                                selected = selectedTypeFilter == type,
+                                onClick = { selectedTypeFilter = if (selectedTypeFilter == type) null else type },
+                                label = { Text("${type.icon} ${type.titleRu} ($count)", fontSize = 11.sp) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = RomanGold,
+                                    selectedLabelColor = RomanDarkSurface,
+                                    containerColor = Color(0xFF241B15),
+                                    labelColor = RomanGoldLight
+                                )
+                            )
+                        }
+                    }
                 }
             }
         }
 
-        items(equipment) { item ->
+        items(filteredEquipment) { item ->
             val equippedCohort = cohorts.find { it.id == item.equippedCohortId }
             EquipmentCard(
                 item = item,
                 canAfford = resources.denarii >= item.costDenarii,
+                canAffordTemper = resources.denarii >= item.temperCostDenarii,
                 equippedCohortName = equippedCohort?.name,
                 selectedCohortId = selectedCohortForEquip,
                 onCraft = { onCraftItem(item.id) },
+                onTemper = { onTemperItem(item.id) },
+                onSalvage = { onSalvageItem(item.id) },
                 onEquipToggle = { cohortId ->
                     if (item.equippedCohortId == cohortId) {
                         onEquipItem(item.id, null) // Unequip
@@ -182,9 +233,12 @@ fun ArmoryScreen(
 private fun EquipmentCard(
     item: EquipmentItem,
     canAfford: Boolean,
+    canAffordTemper: Boolean,
     equippedCohortName: String?,
     selectedCohortId: String?,
     onCraft: () -> Unit,
+    onTemper: () -> Unit,
+    onSalvage: () -> Unit,
     onEquipToggle: (String?) -> Unit
 ) {
     val isEquippedOnSelected = item.equippedCohortId == selectedCohortId
@@ -207,60 +261,61 @@ private fun EquipmentCard(
             ) {
                 Box(
                     modifier = Modifier
-                        .size(40.dp)
+                        .size(42.dp)
                         .clip(RoundedCornerShape(8.dp))
                         .background(if (item.isCrafted) RomanCrimson else Color(0xFF2B221A))
                         .border(1.dp, RomanGold, RoundedCornerShape(8.dp)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(text = item.type.icon, fontSize = 20.sp)
+                    Text(text = item.type.icon, fontSize = 22.sp)
                 }
 
                 Spacer(modifier = Modifier.width(10.dp))
 
                 Column(modifier = Modifier.weight(1f)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = item.nameRu,
+                            color = if (item.isCrafted) RomanGoldLight else Color.White,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        if (item.temperLevel > 0) {
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "★".repeat(item.temperLevel),
+                                color = Color(0xFFFFD54F),
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
                     Text(
-                        text = item.nameRu,
-                        color = if (item.isCrafted) RomanGoldLight else Color.White,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = item.type.titleRu,
+                        text = "${item.latinName} • ${item.type.titleRu}",
                         color = RomanTextGold,
                         fontSize = 10.sp
                     )
                 }
 
-                if (item.isCrafted) {
-                    if (equippedCohortName != null) {
-                        Surface(
-                            color = Color(0x334CAF50),
-                            shape = RoundedCornerShape(6.dp),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF81C784))
-                        ) {
-                            Text(
-                                text = "Экипировано: $equippedCohortName",
-                                color = Color(0xFFA5D6A7),
-                                fontSize = 9.sp,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
-                            )
-                        }
-                    } else {
-                        Surface(
-                            color = Color(0x33FFA000),
-                            shape = RoundedCornerShape(6.dp),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFFB300))
-                        ) {
-                            Text(
-                                text = "На складе",
-                                color = Color(0xFFFFE082),
-                                fontSize = 9.sp,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
-                            )
-                        }
-                    }
+                // Material Badge
+                val materialBg = when (item.material) {
+                    EquipmentMaterial.IMPERIAL_GOLD -> Color(0xFF6A1B9A)
+                    EquipmentMaterial.SPANISH_STEEL -> Color(0xFF00695C)
+                    EquipmentMaterial.IRON -> Color(0xFF37474F)
+                    EquipmentMaterial.BRONZE -> Color(0xFF4E342E)
+                }
+                Surface(
+                    color = materialBg,
+                    shape = RoundedCornerShape(6.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, RomanGoldDark.copy(alpha = 0.5f))
+                ) {
+                    Text(
+                        text = "${item.material.badge} ${item.material.titleRu}",
+                        color = RomanGoldLight,
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                    )
                 }
             }
 
@@ -272,7 +327,7 @@ private fun EquipmentCard(
             )
 
             Spacer(modifier = Modifier.height(6.dp))
-            // Stat bonuses row
+            // Stat bonuses row (calculated with temper bonus)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -280,11 +335,11 @@ private fun EquipmentCard(
                     .padding(horizontal = 8.dp, vertical = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                if (item.attackBonus > 0) {
-                    Text(text = "⚔️ Атака +${item.attackBonus}", color = RomanGoldLight, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                if (item.totalAttackBonus > 0) {
+                    Text(text = "⚔️ Атака +${item.totalAttackBonus}", color = RomanGoldLight, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                 }
-                if (item.defenseBonus > 0) {
-                    Text(text = "🛡️ Защита +${item.defenseBonus}", color = Color(0xFF81C784), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                if (item.totalDefenseBonus > 0) {
+                    Text(text = "🛡️ Защита +${item.totalDefenseBonus}", color = Color(0xFF81C784), fontSize = 10.sp, fontWeight = FontWeight.Bold)
                 }
                 if (item.casualtyReductionPct > 0) {
                     Text(text = "🏥 Потери -${item.casualtyReductionPct}%", color = Color(0xFF90CAF9), fontSize = 10.sp, fontWeight = FontWeight.Bold)
@@ -318,6 +373,55 @@ private fun EquipmentCard(
                     )
                 }
             } else {
+                // Crafted Item controls: Tempering + Salvaging + Cohort Equip
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    // Temper button if < max level (3)
+                    if (item.temperLevel < 3) {
+                        OutlinedButton(
+                            onClick = onTemper,
+                            enabled = canAffordTemper,
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(36.dp)
+                                .testTag("temper_item_${item.id}"),
+                            shape = RoundedCornerShape(6.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(containerColor = Color(0x33FFA000)),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, if (canAffordTemper) RomanGoldLight else RomanBronzeDark)
+                        ) {
+                            Text(
+                                text = "🔥 Закалить (+1) 🪙${item.temperCostDenarii}",
+                                color = if (canAffordTemper) RomanGoldLight else RomanTextMuted,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+
+                    // Salvage button
+                    OutlinedButton(
+                        onClick = onSalvage,
+                        modifier = Modifier
+                            .weight(0.8f)
+                            .height(36.dp)
+                            .testTag("salvage_item_${item.id}"),
+                        shape = RoundedCornerShape(6.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(containerColor = Color(0x33424242)),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF757575))
+                    ) {
+                        Text(
+                            text = "♻️ Сдать +🪙${item.salvageDenarii}",
+                            color = Color(0xFFEEEEEE),
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(6.dp))
+
                 if (selectedCohortId != null) {
                     OutlinedButton(
                         onClick = { onEquipToggle(selectedCohortId) },
@@ -327,12 +431,12 @@ private fun EquipmentCard(
                             .testTag("equip_item_${item.id}"),
                         shape = RoundedCornerShape(6.dp),
                         colors = ButtonDefaults.outlinedButtonColors(
-                            containerColor = if (isEquippedOnSelected) Color(0xFF4A148C) else Color.Transparent
+                            containerColor = if (isEquippedOnSelected) Color(0xFF4A148C) else Color(0x33000000)
                         ),
                         border = androidx.compose.foundation.BorderStroke(1.dp, RomanGold)
                     ) {
                         Text(
-                            text = if (isEquippedOnSelected) "Снять снаряжение с когорты" else "Надеть на выбранную когорту",
+                            text = if (isEquippedOnSelected) "✓ Снять снаряжение с выбранной когорты" else "🛡️ Надеть на когорту",
                             color = RomanGoldLight,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold

@@ -111,7 +111,10 @@ fun SeasonPlanDialog(
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                // Expenses summary box
+                // Expenses & Income summary box
+                val expectedSenateIncome = (resources.senateFavor * 1.5f + 35).toInt()
+                val netDenariiChange = expectedSenateIncome - totalCostDenarii
+
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -120,20 +123,31 @@ fun SeasonPlanDialog(
                         .border(1.dp, RomanBronzeDark, RoundedCornerShape(8.dp))
                         .padding(12.dp)
                 ) {
-                    Column {
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text(
-                            text = "Расходы за сезон:",
+                            text = "Финансовый прогноз на сезон:",
                             color = RomanGold,
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Bold
                         )
-                        Spacer(modifier = Modifier.height(4.dp))
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Text(text = "💰 Денарии: -$totalCostDenarii", color = if (resources.denarii >= totalCostDenarii) RomanGoldLight else DefeatRed, fontSize = 13.sp)
-                            Text(text = "🌾 Провизия: -$totalCostProvisions", color = if (resources.provisions >= totalCostProvisions) Color(0xFFC5E1A5) else DefeatRed, fontSize = 13.sp)
+                            Text(text = "🏛️ Жалование Сената: +$expectedSenateIncome 🪙", color = Color(0xFFA5D6A7), fontSize = 12.sp)
+                            Text(text = "📉 Расходы: -$totalCostDenarii 🪙", color = if (resources.denarii >= totalCostDenarii) RomanGoldLight else DefeatRed, fontSize = 12.sp)
+                        }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = "Итого казна: ${if (netDenariiChange >= 0) "+$netDenariiChange" else "$netDenariiChange"} 🪙",
+                                color = if (netDenariiChange >= 0) Color(0xFF81C784) else Color(0xFFFFB74D),
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(text = "🌾 Расход зерна: -$totalCostProvisions", color = if (resources.provisions >= totalCostProvisions) Color(0xFFC5E1A5) else DefeatRed, fontSize = 12.sp)
                         }
                     }
                 }

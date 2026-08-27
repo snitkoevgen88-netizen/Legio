@@ -20,7 +20,6 @@ import androidx.compose.ui.unit.sp
 import com.example.model.*
 import com.example.ui.components.BuildingUpgradeDialog
 import com.example.ui.pixelart.PixelCampTopDownView
-import com.example.ui.pixelart.PixelCampView
 import com.example.ui.theme.*
 
 @Composable
@@ -33,15 +32,18 @@ fun CampScreen(
     cohorts: List<Cohort>,
     commanders: List<Commander>,
     seasonalPlan: SeasonalPlan,
+    activeBlessing: ActiveBlessing?,
     onOpenSeasonPlan: () -> Unit,
     onAutoPlanSeason: () -> Unit,
     onBuildingUpgrade: (BuildingType) -> Unit,
     onNavigateToCohorts: () -> Unit,
     onNavigateToExpeditions: () -> Unit,
+    onNavigateToAltar: () -> Unit,
+    onNavigateToCouncil: () -> Unit,
+    onNavigateToTraining: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var selectedBuildingForModal by remember { mutableStateOf<Building?>(null) }
-    var isTopDownView by remember { mutableStateOf(true) }
 
     LazyColumn(
         modifier = modifier
@@ -49,80 +51,69 @@ fun CampScreen(
             .padding(horizontal = 12.dp, vertical = 6.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        // View Mode Switcher
+        // 1. Pixel Art Top-Down Tactical Castra
         item {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(Color(0xFF23160F), RoundedCornerShape(8.dp))
-                    .border(1.dp, RomanGoldDark, RoundedCornerShape(8.dp))
-                    .padding(4.dp),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                Surface(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clickable { isTopDownView = true },
-                    shape = RoundedCornerShape(6.dp),
-                    color = if (isTopDownView) RomanCrimson else Color.Transparent,
-                    border = if (isTopDownView) androidx.compose.foundation.BorderStroke(1.dp, RomanGoldLight) else null
-                ) {
-                    Text(
-                        text = "🗺️ План лагеря (Вид сверху)",
-                        color = if (isTopDownView) RomanGoldLight else RomanTextMuted,
-                        fontSize = 11.sp,
-                        fontWeight = if (isTopDownView) FontWeight.Bold else FontWeight.Normal,
-                        modifier = Modifier.padding(vertical = 6.dp),
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                    )
+            PixelCampTopDownView(
+                seasonYear = seasonYear,
+                buildings = buildings,
+                cohorts = cohorts,
+                commanders = commanders,
+                onBuildingClick = { bType ->
+                    selectedBuildingForModal = buildings.find { it.type == bType }
                 }
+            )
+        }
 
-                Surface(
+        // 2. Active Blessing / Divine Favor Ribbon (if active)
+        if (activeBlessing != null) {
+            item {
+                Card(
                     modifier = Modifier
-                        .weight(1f)
-                        .clickable { isTopDownView = false },
-                    shape = RoundedCornerShape(6.dp),
-                    color = if (!isTopDownView) RomanCrimson else Color.Transparent,
-                    border = if (!isTopDownView) androidx.compose.foundation.BorderStroke(1.dp, RomanGoldLight) else null
+                        .fillMaxWidth()
+                        .clickable { onNavigateToAltar() },
+                    shape = RoundedCornerShape(10.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF2C2216)),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, TriumphGold)
                 ) {
-                    Text(
-                        text = "🌄 Панорама (Вид сбоку)",
-                        color = if (!isTopDownView) RomanGoldLight else RomanTextMuted,
-                        fontSize = 11.sp,
-                        fontWeight = if (!isTopDownView) FontWeight.Bold else FontWeight.Normal,
-                        modifier = Modifier.padding(vertical = 6.dp),
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Text(text = activeBlessing.god.icon, fontSize = 24.sp)
+                        Column(modifier = Modifier.weight(1f)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "✨ Покровительство: ${activeBlessing.god.titleRu}",
+                                    color = TriumphGold,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = "${activeBlessing.seasonsRemaining} сез.",
+                                    color = RomanGoldLight,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                            Text(
+                                text = activeBlessing.effectRu,
+                                color = RomanGreenLight,
+                                fontSize = 11.sp
+                            )
+                        }
+                    }
                 }
             }
         }
 
-        // 1. Pixel Art Animated Camp (Top-Down or Side View)
-        item {
-            if (isTopDownView) {
-                PixelCampTopDownView(
-                    seasonYear = seasonYear,
-                    buildings = buildings,
-                    cohorts = cohorts,
-                    commanders = commanders,
-                    onBuildingClick = { bType ->
-                        selectedBuildingForModal = buildings.find { it.type == bType }
-                    }
-                )
-            } else {
-                PixelCampView(
-                    seasonYear = seasonYear,
-                    buildings = buildings,
-                    cohorts = cohorts,
-                    commanders = commanders,
-                    onBuildingClick = { bType ->
-                        selectedBuildingForModal = buildings.find { it.type == bType }
-                    }
-                )
-            }
-        }
-
-        // 2. Camp & Republic Rank Status Banner
+        // 3. Camp & Republic Rank Status Banner
         item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -167,7 +158,7 @@ fun CampScreen(
             }
         }
 
-        // 3. Central "План Сезона / Завершить сезон" Action Bar
+        // 4. Central "План Сезона / Завершить сезон" Action Card
         item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -191,7 +182,8 @@ fun CampScreen(
                         text = seasonYear.season.effectDescRu,
                         color = RomanParchment,
                         fontSize = 12.sp,
-                        modifier = Modifier.padding(vertical = 4.dp)
+                        modifier = Modifier.padding(vertical = 4.dp),
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
                     )
 
                     Spacer(modifier = Modifier.height(10.dp))
@@ -242,18 +234,135 @@ fun CampScreen(
             }
         }
 
-        // 4. Quick Legion Readiness Overview
+        // 5. Quick Shortcuts Row: 🕊️ Алтарь Богов | 🦅 Совет & Трофеи
         item {
-            Text(
-                text = "⚔️ Боеготовность когорт",
-                color = RomanGoldLight,
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Bold
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Surface(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable { onNavigateToAltar() },
+                    shape = RoundedCornerShape(8.dp),
+                    color = RomanDarkSurfaceCard,
+                    border = androidx.compose.foundation.BorderStroke(1.dp, RomanGoldDark)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(text = "🕊️", fontSize = 18.sp)
+                        Column {
+                            Text(text = "Алтарь Богов", color = RomanGoldLight, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            Text(text = "Авгурии и жертвы", color = RomanTextMuted, fontSize = 10.sp)
+                        }
+                    }
+                }
+
+                Surface(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable { onNavigateToCouncil() },
+                    shape = RoundedCornerShape(8.dp),
+                    color = RomanDarkSurfaceCard,
+                    border = androidx.compose.foundation.BorderStroke(1.dp, RomanGoldDark)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(text = "🦅", fontSize = 18.sp)
+                        Column {
+                            Text(text = "Совет & Трофеи", color = RomanGoldLight, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            Text(text = "Речь и реликвии", color = RomanTextMuted, fontSize = 10.sp)
+                        }
+                    }
+                }
+            }
+        }
+
+        // 5.5 Quick Link to Campus Martius / Training Screen
+        item {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onNavigateToTraining() },
+                shape = RoundedCornerShape(10.dp),
+                color = RomanDarkSurfaceCard,
+                border = androidx.compose.foundation.BorderStroke(1.dp, RomanGold)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(RomanCrimson),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(text = "🏋️", fontSize = 18.sp)
+                        }
+                        Column {
+                            Text(
+                                text = "Марсово поле: Муштра и набор юнитов",
+                                color = RomanGoldLight,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "Набор гастатов, принципов, триариев и тренировка с прогрессом",
+                                color = RomanTextMuted,
+                                fontSize = 11.sp
+                            )
+                        }
+                    }
+
+                    Text(
+                        text = "Войти →",
+                        color = RomanGold,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        }
+
+        // 6. Quick Legion Readiness Overview
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "⚔️ Боеготовность когорт",
+                    color = RomanGoldLight,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "Все когорты →",
+                    color = RomanGold,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.clickable { onNavigateToCohorts() }
+                )
+            }
         }
 
         items(cohorts) { cohort ->
-            val assignedCmd = commanders.find { it.id == cohort.assignedCommanderId }
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -304,9 +413,8 @@ fun CampScreen(
             }
         }
 
-        // Bottom space for navigation bar
         item {
-            Spacer(modifier = Modifier.height(60.dp))
+            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 

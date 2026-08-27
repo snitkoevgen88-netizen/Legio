@@ -31,6 +31,7 @@ fun CohortsScreen(
     onSetTrainingCohort: (String?) -> Unit,
     onReplenishCohort: (String) -> Unit,
     onReplenishAllCohorts: () -> Unit,
+    onNavigateToTraining: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val totalMissingSoldiers = cohorts.sumOf { it.maxSoldiers - it.soldiers }
@@ -65,7 +66,7 @@ fun CohortsScreen(
                             )
                             Text(
                                 text = if (totalMissingSoldiers > 0) "Не хватает: $totalMissingSoldiers воинов (🪙 $totalReplenishCost)" else "Все когорты полностью укомплектованы",
-                                color = if (totalMissingSoldiers > 0) DefeatRed else RomanGreenLight,
+                                color = if (totalMissingSoldiers > 0) DefeatRed else RomanLaurelGreen,
                                 fontSize = 11.sp
                             )
                         }
@@ -78,7 +79,7 @@ fun CohortsScreen(
                                     .height(36.dp)
                                     .testTag("replenish_all_cohorts_btn"),
                                 colors = ButtonDefaults.buttonColors(
-                                    containerColor = RomanGreenLight,
+                                    containerColor = RomanLaurelGreen,
                                     contentColor = RomanDarkSurface,
                                     disabledContainerColor = RomanBronzeDark
                                 ),
@@ -91,6 +92,28 @@ fun CohortsScreen(
                                     fontWeight = FontWeight.Bold
                                 )
                             }
+                        }
+                    }
+
+                    if (onNavigateToTraining != null) {
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Button(
+                            onClick = onNavigateToTraining,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(38.dp)
+                                .testTag("go_to_training_from_cohorts"),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = RomanCrimson,
+                                contentColor = RomanGoldLight
+                            ),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Text(
+                                text = "🏋️ Муштра манипул (Гастаты, Принципы, Триарии) →",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
                         }
                     }
                 }
