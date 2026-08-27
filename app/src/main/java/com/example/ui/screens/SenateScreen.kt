@@ -45,6 +45,7 @@ fun SenateScreen(
     campLevel: Int = 1,
     totalSoldiers: Int = 300,
     onClaimQuest: (String) -> Unit,
+    onClaimAllQuests: () -> Unit = {},
     onResolvePetition: (String) -> Unit,
     onHoldSpeech: () -> Unit = {},
     onDonativum: () -> Unit = {},
@@ -219,6 +220,26 @@ fun SenateScreen(
                                             fontSize = 10.sp
                                         )
                                     }
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Button(
+                                        onClick = onClaimAllQuests,
+                                        modifier = Modifier
+                                            .height(36.dp)
+                                            .testTag("claim_all_senate_quests_btn"),
+                                        shape = RoundedCornerShape(8.dp),
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = RomanCrimson,
+                                            contentColor = RomanGoldLight
+                                        ),
+                                        border = androidx.compose.foundation.BorderStroke(1.dp, RomanGoldLight),
+                                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                                    ) {
+                                        Text(
+                                            text = "🎁 Забрать всё ($completedUnclaimed)",
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.ExtraBold
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -263,7 +284,7 @@ fun SenateScreen(
                             horizontalArrangement = Arrangement.spacedBy(6.dp),
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            items(QuestCategory.entries) { cat ->
+                            items(QuestCategory.entries, key = { it.name }) { cat ->
                                 val count = if (cat == QuestCategory.ALL) {
                                     senateQuests.count()
                                 } else {
@@ -363,7 +384,7 @@ fun SenateScreen(
                     )
                 }
 
-                items(senatePetitions) { petition ->
+                items(senatePetitions, key = { it.id }) { petition ->
                     SenatePetitionCard(
                         petition = petition,
                         currentFavor = resources.senateFavor,
@@ -388,7 +409,7 @@ fun SenateScreen(
                     )
                 }
 
-                items(SenateFaction.entries) { faction ->
+                items(SenateFaction.entries, key = { it.name }) { faction ->
                     SenateFactionCard(faction = faction)
                 }
             }
@@ -697,28 +718,73 @@ private fun SenateQuestCard(
                 }
             }
 
-            // Claim Action
+            // Claim Action or In-Progress Button
+            Spacer(modifier = Modifier.height(10.dp))
             if (quest.isFinished && !quest.isClaimed) {
-                Spacer(modifier = Modifier.height(10.dp))
                 Button(
                     onClick = onClaim,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(40.dp)
+                        .height(44.dp)
                         .testTag("claim_senate_quest_${quest.id}"),
                     shape = RoundedCornerShape(8.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = RomanCrimson),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, RomanGoldLight)
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = RomanCrimson,
+                        contentColor = RomanGoldLight
+                    ),
+                    border = androidx.compose.foundation.BorderStroke(1.5.dp, RomanGoldLight)
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(text = "🏆", fontSize = 16.sp)
-                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(text = "🎁", fontSize = 16.sp)
+                        Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "Принять почести и награду Сената",
+                            text = "Забрать награду (+${quest.rewardDenarii}🪙, +${quest.rewardGlory}⭐)",
                             color = RomanGoldLight,
                             fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.ExtraBold
                         )
+                    }
+                }
+            } else if (!quest.isFinished && !quest.isClaimed) {
+                OutlinedButton(
+                    onClick = { /* In progress indicator */ },
+                    enabled = false,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(38.dp),
+                    shape = RoundedCornerShape(8.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        disabledContainerColor = Color(0x1A000000),
+                        disabledContentColor = RomanTextMuted
+                    ),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, RomanGoldDark.copy(alpha = 0.3f))
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(text = "⏳", fontSize = 13.sp)
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Задание выполняется (${quest.currentProgress}/${quest.targetCount})",
+                            fontSize = 11.5.sp,
+                            color = RomanTextMuted,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+            } else if (quest.isClaimed) {
+                Surface(
+                    color = Color(0x224CAF50),
+                    shape = RoundedCornerShape(8.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0x4481C784)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 8.dp),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(text = "✓ Награда получена и зачислена в казну легиона", color = Color(0xFFA5D6A7), fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     }
                 }
             }

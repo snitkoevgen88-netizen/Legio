@@ -176,7 +176,7 @@ fun AltarScreen(
         }
 
         // List of Divine Rituals
-        items(rituals) { ritual ->
+        items(rituals, key = { it.id }) { ritual ->
             val canAfford = resources.denarii >= ritual.costDenarii && resources.provisions >= ritual.costProvisions
             val isCurrentlyActive = activeBlessing?.god == ritual.god
 

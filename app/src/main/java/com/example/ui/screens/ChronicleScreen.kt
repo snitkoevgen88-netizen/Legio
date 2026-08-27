@@ -47,7 +47,7 @@ fun ChronicleScreen(
             )
         }
 
-        items(chronicles) { entry ->
+        items(chronicles, key = { it.id }) { entry ->
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(10.dp),

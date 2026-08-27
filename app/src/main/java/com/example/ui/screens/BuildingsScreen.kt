@@ -50,7 +50,7 @@ fun BuildingsScreen(
             )
         }
 
-        items(buildings) { building ->
+        items(buildings, key = { it.type.name }) { building ->
             val isSelectedForUpgrade = seasonalPlan.upgradeBuildingType == building.type
             val isMaxLevel = building.level >= building.maxLevel
             val canAfford = resources.denarii >= building.upgradeCostDenarii && resources.provisions >= building.upgradeCostProvisions

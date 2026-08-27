@@ -1,5 +1,7 @@
 package com.example.model
 
+import androidx.compose.runtime.Immutable
+
 enum class Season(val titleRu: String, val icon: String, val effectDescRu: String) {
     SPRING("Весна", "🌱", "Сбор новобранцев. Снижена стоимость тренировок на 20%."),
     SUMMER("Лето", "☀️", "Сезон походов! +15% к шансу победы в дальних экспедициях."),
@@ -7,6 +9,7 @@ enum class Season(val titleRu: String, val icon: String, val effectDescRu: Strin
     WINTER("Зима", "❄️", "Зимние квартиры. Армия отдыхает в лагере, снижен риск потерь.")
 }
 
+@Immutable
 data class SeasonYear(
     val seasonIndex: Int = 0, // 0..3 -> Spring, Summer, Autumn, Winter
     val seasonNumber: Int = 1, // Total seasons passed
@@ -16,6 +19,7 @@ data class SeasonYear(
     val formatted: String get() = "${season.icon} ${season.titleRu}, $yearBc г. до н.э. (Сезон $seasonNumber)"
 }
 
+@Immutable
 data class LegionResources(
     val denarii: Int = 240,
     val provisions: Int = 160,
@@ -74,6 +78,7 @@ enum class CommanderTrait(
     val descRu: String get() = descriptionRu
 }
 
+@Immutable
 data class Commander(
     val id: String,
     val name: String,
@@ -92,7 +97,9 @@ data class Commander(
     val greatVictoriesCount: Int = 0,
     val defeatsCount: Int = 0,
     val isAlive: Boolean = true,
-    val moodStatus: String = "Готов к бою"
+    val moodStatus: String = "Готов к бою",
+    val unlockedTalents: List<OfficerTalent> = emptyList(),
+    val awardedCoronas: List<MilitaryCorona> = emptyList()
 ) {
     val rankIndex: Int get() = when {
         level >= 7 -> 3 // Легат
@@ -107,6 +114,7 @@ data class Commander(
     val rankLabel: String get() = rankName
 }
 
+@Immutable
 data class Cohort(
     val id: String,
     val name: String, // e.g. "I Cohors «Ferrata»"
@@ -155,6 +163,7 @@ enum class BuildingType(
     BALLISTARIUM("Парк осадных машин (Ballistarium)", "🎯", "Сборка баллист, скорпионов и онагров для штурма вражеских укреплений.")
 }
 
+@Immutable
 data class Building(
     val type: BuildingType,
     val level: Int = 1, // 1..3
@@ -265,6 +274,7 @@ enum class Tactics(
     )
 }
 
+@Immutable
 data class ScoutIntel(
     val estimatedEnemyStrengthRu: String, // "Примерно средняя", "Чрезвычайно высокая"
     val dangerLevelRu: String, // "Умеренная", "Высокая", "Смертельная"
@@ -273,6 +283,7 @@ data class ScoutIntel(
     val intelClarity: Int = 1 // 1 = туманная, 2 = частичная, 3 = точная
 )
 
+@Immutable
 data class Expedition(
     val id: String,
     val titleRu: String,
@@ -303,6 +314,7 @@ enum class ExpeditionOutcome(
     DISASTER("Катастрофа (Разгром)", "💀", gloryDelta = -10, moralImpact = -35, isSuccess = false)
 }
 
+@Immutable
 data class BattleOddsPreview(
     val greatVictoryPct: Int,
     val victoryPct: Int,
@@ -312,6 +324,7 @@ data class BattleOddsPreview(
     val adviceRu: String
 )
 
+@Immutable
 data class CompetingLegion(
     val id: String,
     val name: String,
@@ -322,6 +335,7 @@ data class CompetingLegion(
     val badgeSymbol: String
 )
 
+@Immutable
 data class ChronicleEntry(
     val id: String,
     val seasonFormatted: String,
@@ -338,6 +352,7 @@ data class ChronicleEntry(
     val traditionUnlocked: String? = null
 )
 
+@Immutable
 data class Achievement(
     val id: String,
     val titleRu: String,
@@ -347,6 +362,7 @@ data class Achievement(
     val isUnlocked: Boolean = false
 )
 
+@Immutable
 data class CampEventChoice(
     val textRu: String,
     val effectDescRu: String,
@@ -359,6 +375,7 @@ data class CampEventChoice(
     val resultLogRu: String
 )
 
+@Immutable
 data class CampEvent(
     val id: String,
     val titleRu: String,
@@ -367,6 +384,7 @@ data class CampEvent(
     val choices: List<CampEventChoice>
 )
 
+@Immutable
 data class SeasonalPlan(
     val trainCohortId: String? = null,
     val upgradeBuildingType: BuildingType? = null,
@@ -379,6 +397,7 @@ data class SeasonalPlan(
         trainCohortId != null || upgradeBuildingType != null || launchedExpeditionId != null
 }
 
+@Immutable
 data class MilitaryDoctrine(
     val id: String,
     val titleRu: String,
@@ -407,6 +426,7 @@ enum class EquipmentMaterial(val titleRu: String, val colorHex: Long, val badge:
     IMPERIAL_GOLD("Золоченая бронза", 0xFFFFD700, "👑")
 }
 
+@Immutable
 data class EquipmentItem(
     val id: String,
     val nameRu: String,
@@ -468,6 +488,7 @@ enum class SenateFaction(
     )
 }
 
+@Immutable
 data class SenatePetition(
     val id: String,
     val titleRu: String,
@@ -494,6 +515,7 @@ enum class QuestPriority(val titleRu: String, val badge: String, val colorHex: L
     SENATUS_CONSULTUM_ULTIMUM("Чрезвычайный декрет SPQR", "👑", 0xFFD32F2F)
 }
 
+@Immutable
 data class SenateQuest(
     val id: String,
     val titleRu: String,
@@ -522,6 +544,7 @@ data class SenateQuest(
     val progressPercent: Int get() = (progressRatio * 100).toInt()
 }
 
+@Immutable
 data class ExpeditionResult(
     val expedition: Expedition,
     val commander: Commander,
@@ -555,6 +578,7 @@ enum class GodType(
     FORTUNA("Фортуна Воинская", "Fortuna Victrix", "🎲", "Богиня удачи и спасения в бою", "«Audaces Fortuna iuvat — Храбрым судьба помогает!»")
 }
 
+@Immutable
 data class DivineRitual(
     val id: String,
     val god: GodType,
@@ -565,6 +589,7 @@ data class DivineRitual(
     val costProvisions: Int = 0
 )
 
+@Immutable
 data class ActiveBlessing(
     val god: GodType,
     val ritualNameRu: String,
@@ -572,6 +597,7 @@ data class ActiveBlessing(
     val seasonsRemaining: Int = 1
 )
 
+@Immutable
 data class LegionTrophy(
     val id: String,
     val titleRu: String,
@@ -704,6 +730,7 @@ enum class UnitType(
     )
 }
 
+@Immutable
 data class UnitTrainingAllocation(
     val unitType: UnitType,
     val allocatedCount: Int = 10,
@@ -738,6 +765,7 @@ enum class EconomySubTab(val titleRu: String, val icon: String) {
     MARKET("Рынок & Торговля", "🌾")
 }
 
+@Immutable
 data class ProvincialInvestment(
     val id: String,
     val titleRu: String,
@@ -800,6 +828,7 @@ data class ProvincialInvestment(
     }
 }
 
+@Immutable
 data class RomanBankingState(
     val depositDenarii: Int = 0,
     val activeLoanDenarii: Int = 0,
@@ -812,6 +841,7 @@ data class RomanBankingState(
     val projectedSeasonalInterest: Int get() = (depositDenarii * 0.05f).toInt()
 }
 
+@Immutable
 data class MarketState(
     val grainPriceBuy: Int = 30, // for 40 grain
     val grainPriceSell: Int = 22, // for 30 grain
@@ -819,6 +849,335 @@ data class MarketState(
     val marketConditionDescRu: String = "Торговые пути Лация и Кампании открыты, поставки пшеницы регулярны.",
     val marketTrendIcon: String = "⚖️",
     val priceModifier: Float = 1.0f // 0.7f .. 1.4f
+)
+
+// ==========================================
+// 1. CURSUS HONORUM (ПОЛИТИЧЕСКАЯ КАРЬЕРА КОНСУЛА)
+// ==========================================
+
+enum class MagistracyRank(
+    val titleRu: String,
+    val latinNameRu: String,
+    val icon: String,
+    val minGlory: Int,
+    val minSenateFavor: Int,
+    val minDenariiInvested: Int,
+    val togaTitleRu: String,
+    val bonusSummaryRu: String,
+    val electionSpeechPromptRu: String
+) {
+    TRIBUNUS_MILITUM(
+        titleRu = "Военный Трибун",
+        latinNameRu = "Tribunus Militum",
+        icon = "🗡️",
+        minGlory = 0,
+        minSenateFavor = 0,
+        minDenariiInvested = 0,
+        togaTitleRu = "Туника легионного трибуна с узкой пурпурной полосой (Angusticlavia)",
+        bonusSummaryRu = "Базовое командование когортами в Лации. Офицерские привилегии.",
+        electionSpeechPromptRu = "«Клянусь перед Марсом и Сенатом беречь жизнь каждого сына Рима!»"
+    ),
+    QUAESTOR(
+        titleRu = "Квестор Казначейства",
+        latinNameRu = "Quaestor Aerarii",
+        icon = "💰",
+        minGlory = 35,
+        minSenateFavor = 40,
+        minDenariiInvested = 60,
+        togaTitleRu = "Тога квестора Рима. Право заседать в Сенате.",
+        bonusSummaryRu = "+20 денариев к сезонному жалованию, -10% к расходам на пополнение когорт.",
+        electionSpeechPromptRu = "«Ни один денарий казны не пропадет даром! Мы обеспечим армию лучшим оружием!»"
+    ),
+    AEDILIS(
+        titleRu = "Курульный Эдил",
+        latinNameRu = "Aedilis Curulis",
+        icon = "🎪",
+        minGlory = 80,
+        minSenateFavor = 55,
+        minDenariiInvested = 140,
+        togaTitleRu = "Тога с широкой каймой (Praetexta). Курульное кресло из слоновой кости.",
+        bonusSummaryRu = "Право устраивать цирковые игры (+25 к морали всех когорт), +15% к доходам рынков.",
+        electionSpeechPromptRu = "«Хлеб и зрелища народу! Величие и порядок на улицах Вечного Города!»"
+    ),
+    PRAETOR(
+        titleRu = "Претор Республики",
+        latinNameRu = "Praetor Urbanus",
+        icon = "⚖️",
+        minGlory = 140,
+        minSenateFavor = 65,
+        minDenariiInvested = 250,
+        togaTitleRu = "Пурпурная преторская тога. 6 ликторов с фасциями.",
+        bonusSummaryRu = "Право высшего суда. Снижает риск военных катастроф на 15%, +5 к защите всех когорт.",
+        electionSpeechPromptRu = "«Закон суров, но священен! Рим стоит на справедливости двенадцати таблиц!»"
+    ),
+    CONSUL(
+        titleRu = "Консул Рима (Высший Магистрат)",
+        latinNameRu = "Consul Romanus",
+        icon = "👑",
+        minGlory = 220,
+        minSenateFavor = 75,
+        minDenariiInvested = 400,
+        togaTitleRu = "Консульская тога-претекста. 12 ликторов с секирами.",
+        bonusSummaryRu = "Верховное командование всеми армиями Республики. +35% к трофеям, двойные голоса в Сенате.",
+        electionSpeechPromptRu = "«Перед лицом Юпитера Всеблагого: весь мир склонится перед орлами Сената и Народа Рима!»"
+    ),
+    DICTATOR_TRIUMPHATOR(
+        titleRu = "Диктатор & Триумфатор",
+        latinNameRu = "Dictator et Triumphator",
+        icon = "🌟",
+        minGlory = 320,
+        minSenateFavor = 85,
+        minDenariiInvested = 600,
+        togaTitleRu = "Золотая триумфальная тога (Toga Picta). Лавровый венок Юпитера Капитолийского.",
+        bonusSummaryRu = "Абсолютная власть над Римом. Иммунитет к поражениям, золотой век Республики!",
+        electionSpeechPromptRu = "«Veni, vidi, vici! Слава Legio IV навеки высечена на Капитолийском холме!»"
+    )
+}
+
+@Immutable
+data class RomanElectionCampaign(
+    val targetRank: MagistracyRank,
+    val plebeianSupportPct: Int = 50,
+    val patricianSupportPct: Int = 50,
+    val briberyBudgetSpent: Int = 0,
+    val gamesOrganizedCount: Int = 0,
+    val speechesDelivered: Int = 0,
+    val isElected: Boolean = false
+) {
+    val totalElectionScore: Int get() = ((plebeianSupportPct * 0.5f) + (patricianSupportPct * 0.5f) + (gamesOrganizedCount * 12)).toInt()
+    val isReadyForVote: Boolean get() = totalElectionScore >= 75
+}
+
+// ==========================================
+// 2. OFFICER TALENTS, CORONAS & AQUILA RELICS
+// ==========================================
+
+enum class OfficerTalent(
+    val titleRu: String,
+    val icon: String,
+    val branchRu: String, // "Тактика", "Логистика", "Лидерство", "Осада"
+    val levelReq: Int,
+    val perkRu: String,
+    val descRu: String
+) {
+    SIEGE_ENGINEER(
+        titleRu = "Мастер Осадного Искусства",
+        icon = "🎯",
+        branchRu = "Осада & Штурм",
+        levelReq = 2,
+        perkRu = "+6 к урону при штурме крепостей и самнитских цитаделей.",
+        descRu = "Изучил труды греческих инженеров Сиракуз и совершенствует расчет онагров и таранов."
+    ),
+    CAVALRY_TACTICIAN(
+        titleRu = "Гроза Всадников",
+        icon = "🐎",
+        branchRu = "Тактика",
+        levelReq = 3,
+        perkRu = "+35% к урону при фланговом маневре, нейтрализует засады.",
+        descRu = "Лично ведет турмы союзных эквитов в стремительные охваты вражеского строя."
+    ),
+    IRON_DISCIPLINE(
+        titleRu = "Железный Центурион",
+        icon = "📐",
+        branchRu = "Лидерство",
+        levelReq = 2,
+        perkRu = "Мораль отряда никогда не падает ниже 50%, -20% потерь.",
+        descRu = "Виноградная лоза центуриона в его руке внушает бойцам больше страха, чем вражеские мечи."
+    ),
+    LOGISTICS_GENIUS(
+        titleRu = "Интендант Квестуры",
+        icon = "📦",
+        branchRu = "Логистика",
+        levelReq = 2,
+        perkRu = "-25% к расходу провианта в походе, +20% к золотым трофеям.",
+        descRu = "Умеет накормить легион в бесплодных горах Самния за счет фуражировки."
+    ),
+    INVICTA_CHAMPION(
+        titleRu = "Первый Копейщик (Primus Pilus)",
+        icon = "⚔️",
+        branchRu = "Лидерство",
+        levelReq = 4,
+        perkRu = "+10 к атаке первой манипулы, шанс мгновенного разгрома врага.",
+        descRu = "Главный офицер легиона. Вдохновляет триариев на решающий смертоносный удар."
+    )
+}
+
+enum class MilitaryCorona(
+    val titleRu: String,
+    val latinNameRu: String,
+    val icon: String,
+    val auraPerkRu: String,
+    val descriptionRu: String,
+    val requirementRu: String
+) {
+    CORONA_CIVICA(
+        titleRu = "Гражданский Венок из Дуба",
+        latinNameRu = "Corona Civica",
+        icon = "🍃",
+        auraPerkRu = "+25% к спасению ветеранов в лазарете.",
+        descriptionRu = "Вторая по чести награда Рима, вручаемая за спасение жизни римского гражданина в бою.",
+        requirementRu = "Одержите победу с потерями менее 5 легионеров."
+    ),
+    CORONA_MURALIS(
+        titleRu = "Стенной Золотой Венок",
+        latinNameRu = "Corona Muralis",
+        icon = "🏰",
+        auraPerkRu = "+8 к атаке при штурме горных крепостей.",
+        descriptionRu = "Золотой венок в форме крепостных зубцов, вручаемый первому, кто взошел на стену вражеского города.",
+        requirementRu = "Победите в 3 осадных кампаниях (Самний, Этрурия)."
+    ),
+    CORONA_AUREA(
+        titleRu = "Золотой Венок Доблести",
+        latinNameRu = "Corona Aurea",
+        icon = "👑",
+        auraPerkRu = "+2 к Славе за каждый бой, +15% к доходам от трофеев.",
+        descriptionRu = "Личная награда Сената за выдающееся мужество и полководческий гений.",
+        requirementRu = "Одержите 5 Великих Побед (Триумфов)."
+    ),
+    CORONA_OBSIDIONALIS(
+        titleRu = "Травяной Осадный Венок",
+        latinNameRu = "Corona Obsidionalis (Graminea)",
+        icon = "🌿",
+        auraPerkRu = "+15 к защите всей армии, иммунитет к окружению.",
+        descriptionRu = "Высшая воинская награда Республики из трав поля боя. Вручается войском полководцу, спасшему всю армию от гибели.",
+        requirementRu = "Победите в чрезвычайном испытании Сената на грани разгрома."
+    )
+}
+
+@Immutable
+data class LegionAquilaState(
+    val aquilaNameRu: String = "Золотой Орел Марса (Aquila Martia)",
+    val customVexillumMotto: String = "SENATVS POPVLVSQVE ROMANVS • LEGIO IV",
+    val eagleUpgradeLevel: Int = 1, // 1..3
+    val totalSacredGlory: Int = 50,
+    val isAquilaProtected: Boolean = true,
+    val selectedBannerColorIndex: Int = 0 // 0 = Crimson, 1 = Royal Purple, 2 = Gold, 3 = Black Iron
+) {
+    val upgradeCostDenarii: Int get() = when (eagleUpgradeLevel) {
+        1 -> 120
+        2 -> 240
+        else -> 0
+    }
+    val eaglePerkRu: String get() = when (eagleUpgradeLevel) {
+        1 -> "I: Золоченый бронзовый орел. +3 к морали всех когорт."
+        2 -> "II: Священный Орел с молниями Юпитера. +7 к морали, +2 к Славе за триумфы."
+        else -> "III: Непобедимая Святыня Рима. +15 к морали, когорты никогда не бегут в панике!"
+    }
+}
+
+// ==========================================
+// 3. INTERACTIVE STRATEGIC CAMPAIGN MAP
+// ==========================================
+
+enum class StrategicProvince(
+    val id: String,
+    val nameRu: String,
+    val latinNameRu: String,
+    val icon: String,
+    val mapX: Float, // 0.0f .. 1.0f on map canvas
+    val mapY: Float,
+    val enemyLeaderRu: String,
+    val controlStatus: String, // "Римский Лаций (Наш оплот)", "Враждебная зона", "Покорено SPQR"
+    val resourceYieldRu: String,
+    val descriptionRu: String,
+    val difficultyStars: Int,
+    val viaRoadNameRu: String
+) {
+    LATIUM(
+        id = "latium",
+        nameRu = "Лаций и Рим",
+        latinNameRu = "Latium Vetus",
+        icon = "🏛️",
+        mapX = 0.42f,
+        mapY = 0.52f,
+        enemyLeaderRu = "Сенат и Народ Рима",
+        controlStatus = "Оплот Республики (100% Контроль)",
+        resourceYieldRu = "+40 🪙, +30 🌾 в сезон",
+        descriptionRu = "Сердце Республики, Капитолийский холм и плодородные долины Тибра.",
+        difficultyStars = 1,
+        viaRoadNameRu = "Via Sacra & Via Ostiensis"
+    ),
+    ETRURIA(
+        id = "etruria",
+        nameRu = "Этрурия (Север)",
+        latinNameRu = "Etruria Septentrionalis",
+        icon = "⚒️",
+        mapX = 0.32f,
+        mapY = 0.32f,
+        enemyLeaderRu = "Лукумон Вейев и Тарквиний",
+        controlStatus = "Оспариваемая граница",
+        resourceYieldRu = "+60 🪙, Богатые железные рудники",
+        descriptionRu = "Древняя богатая цивилизация этрусских царей и могучие каменные крепости.",
+        difficultyStars = 2,
+        viaRoadNameRu = "Via Aurelia & Via Clodia"
+    ),
+    SAMNIUM(
+        id = "samnium",
+        nameRu = "Самний (Апеннинские горы)",
+        latinNameRu = "Samnium Montanum",
+        icon = "⛰️",
+        mapX = 0.58f,
+        mapY = 0.48f,
+        enemyLeaderRu = "Гай Понтий (Самнитский союз)",
+        controlStatus = "Опасные горные перевалы",
+        resourceYieldRu = "+25 🌾, Закаленные новобранцы",
+        descriptionRu = "Грозные самнитские горцы, устраивающие засады в Кавдинских ущельях.",
+        difficultyStars = 3,
+        viaRoadNameRu = "Via Appia & Via Latina"
+    ),
+    CAMPANIA(
+        id = "campania",
+        nameRu = "Кампания & Неаполь",
+        latinNameRu = "Campania Felix",
+        icon = "🍇",
+        mapX = 0.54f,
+        mapY = 0.65f,
+        enemyLeaderRu = "Греческие тираны Кум и Неаполя",
+        controlStatus = "Союзные полисы (Соции)",
+        resourceYieldRu = "+70 🌾, Фалернское вино, +35 🪙",
+        descriptionRu = "«Счастливая Кампания» — житница Италии с богатейшими виноградниками у Везувия.",
+        difficultyStars = 2,
+        viaRoadNameRu = "Via Domitiana"
+    ),
+    MAGNA_GRAECIA(
+        id = "magna_graecia",
+        nameRu = "Великая Греция (Тарент)",
+        latinNameRu = "Magna Graecia",
+        icon = "🏺",
+        mapX = 0.72f,
+        mapY = 0.78f,
+        enemyLeaderRu = "Царь Пирр Эпирский & Тарентцы",
+        controlStatus = "Театр Великой Войны",
+        resourceYieldRu = "+80 🪙, Эллинские шедевры, +5 Слава",
+        descriptionRu = "Процветающие спартанские колонии, нанявшие грозную армию фалангитов и слонов царя Пирра.",
+        difficultyStars = 4,
+        viaRoadNameRu = "Via Traiana"
+    ),
+    SICILIA(
+        id = "sicilia",
+        nameRu = "Сицилия & Карфагенский рубеж",
+        latinNameRu = "Sicilia Insula",
+        icon = "🚢",
+        mapX = 0.48f,
+        mapY = 0.90f,
+        enemyLeaderRu = "Гамилькар Барка (Карфаген)",
+        controlStatus = "Морская блокада Пунийцев",
+        resourceYieldRu = "+120 🪙, Морской порт, +8 Слава",
+        descriptionRu = "Ключ к господству над Средиземным морем. Столкновение двух титанов древнего мира.",
+        difficultyStars = 5,
+        viaRoadNameRu = "Mare Tyrrhenum (Морской путь)"
+    )
+}
+
+@Immutable
+data class StrategicRoadUpgrade(
+    val id: String,
+    val nameRu: String,
+    val connectingProvincesRu: String,
+    val icon: String = "🛣️",
+    val costDenarii: Int = 110,
+    val isPaved: Boolean = false,
+    val speedAndSupplyBonusRu: String
 )
 
 

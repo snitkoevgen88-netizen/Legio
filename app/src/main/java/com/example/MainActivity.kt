@@ -50,6 +50,7 @@ enum class LegionSubTab(val titleRu: String, val icon: String) {
 
 enum class TriumphsSubTab(val titleRu: String, val icon: String) {
     COUNCIL("Совет & Трофеи", "🦅"),
+    CAREER("Cursus Honorum", "🏛️"),
     CHRONICLES("Хроники", "📖"),
     RANKING("Рейтинг", "👑"),
     ACHIEVEMENTS("Слава", "🏆")
@@ -212,10 +213,15 @@ fun LegioInvictaApp(viewModel: GameViewModel = viewModel()) {
                             onEquipItem = { itemId, cohortId -> viewModel.equipItem(itemId, cohortId) },
                             onAutoEquipAll = { viewModel.autoEquipAll() }
                         )
-                        LegionSubTab.COMMANDERS -> CommandersScreen(
+                        LegionSubTab.COMMANDERS -> OfficerTalentsScreen(
                             commanders = uiState.commanders,
                             resources = uiState.resources,
-                            onRecruitCommander = { viewModel.recruitNewCommander() }
+                            aquilaState = uiState.aquilaState,
+                            onRecruitCommander = { viewModel.recruitNewCommander() },
+                            onLearnTalent = { cmdId, talent -> viewModel.learnOfficerTalent(cmdId, talent) },
+                            onAwardCorona = { cmdId, corona -> viewModel.awardMilitaryCorona(cmdId, corona) },
+                            onUpgradeAquila = { viewModel.upgradeAquilaShrineRelic() },
+                            onSetVexillumColor = { colIdx -> viewModel.setVexillumColor(colIdx) }
                         )
                         LegionSubTab.DOCTRINES -> DoctrinesScreen(
                             doctrines = uiState.doctrines,
@@ -232,6 +238,10 @@ fun LegioInvictaApp(viewModel: GameViewModel = viewModel()) {
                     campLevel = uiState.campLevel,
                     resources = uiState.resources,
                     seasonalPlan = uiState.seasonalPlan,
+                    selectedProvince = uiState.selectedProvince,
+                    strategicRoads = uiState.strategicRoads,
+                    onSelectProvince = { prov -> viewModel.selectStrategicProvince(prov) },
+                    onPaveRoad = { roadId -> viewModel.paveStrategicRoad(roadId) },
                     onCalculateOdds = { exp, cmd, coh, tac -> viewModel.calculateBattleOdds(exp, cmd, coh, tac) },
                     onSetExpeditionPlan = { expId, cmdId, cohId, tac -> viewModel.setPlanExpedition(expId, cmdId, cohId, tac) },
                     onSetTactics = { tac -> viewModel.setPlanTactics(tac) },
@@ -248,6 +258,7 @@ fun LegioInvictaApp(viewModel: GameViewModel = viewModel()) {
                     campLevel = uiState.campLevel,
                     totalSoldiers = uiState.cohorts.sumOf { it.soldiers },
                     onClaimQuest = { questId -> viewModel.claimSenateQuest(questId) },
+                    onClaimAllQuests = { viewModel.claimAllSenateQuests() },
                     onResolvePetition = { petitionId -> viewModel.resolveSenatePetition(petitionId) },
                     onHoldSpeech = { viewModel.holdCommanderSpeech() },
                     onDonativum = { viewModel.payDonativum() },
@@ -273,6 +284,15 @@ fun LegioInvictaApp(viewModel: GameViewModel = viewModel()) {
                             onHoldSpeech = { viewModel.holdCommanderSpeech() },
                             onPayDonativum = { viewModel.payDonativum() },
                             onPerformLustratio = { viewModel.performLustratio() }
+                        )
+                        TriumphsSubTab.CAREER -> CursusHonorumScreen(
+                            currentRank = uiState.magistracyRank,
+                            electionCampaign = uiState.electionCampaign,
+                            resources = uiState.resources,
+                            onFundGames = { viewModel.fundPlebeianGames() },
+                            onBribePatricians = { viewModel.bribePatricianSenators() },
+                            onDeliverSpeech = { viewModel.deliverForumSpeech() },
+                            onHoldElection = { viewModel.holdCenturiateElection() }
                         )
                         TriumphsSubTab.CHRONICLES -> ChronicleScreen(
                             chronicles = uiState.chronicles

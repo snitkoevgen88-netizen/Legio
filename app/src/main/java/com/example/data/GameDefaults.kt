@@ -1468,5 +1468,45 @@ object GameDefaults {
             descriptionRu = "Высший статус экономической автономии. Собственная чеканка монет легиона утверждает легендарный престиж и обеспечивает колоссальный доход."
         )
     )
+
+    fun createInitialStrategicRoads(): List<StrategicRoadUpgrade> = listOf(
+        StrategicRoadUpgrade(
+            id = "road_via_appia",
+            nameRu = "Аппиева дорога (Via Appia)",
+            connectingProvincesRu = "Рим ➔ Кампания ➔ Самний",
+            icon = "🛣️",
+            costDenarii = 110,
+            isPaved = true,
+            speedAndSupplyBonusRu = "«Царица дорог» (Regina Viarum). Ускоряет переброску когорт на 25% и снабжение провиантом."
+        ),
+        StrategicRoadUpgrade(
+            id = "road_via_aurelia",
+            nameRu = "Аврелиева дорога (Via Aurelia)",
+            connectingProvincesRu = "Рим ➔ Этрурия и Пиза",
+            icon = "🏛️",
+            costDenarii = 140,
+            isPaved = false,
+            speedAndSupplyBonusRu = "Прямой военный тракт вдоль Тирренского моря. +15% к победам в осадных боях Этрурии."
+        ),
+        StrategicRoadUpgrade(
+            id = "road_via_latina",
+            nameRu = "Латинская дорога (Via Latina)",
+            connectingProvincesRu = "Рим ➔ Горные долины Лация",
+            icon = "🏔️",
+            costDenarii = 90,
+            isPaved = true,
+            speedAndSupplyBonusRu = "Древнейший тракт долины Сакко. -20% к риску засад в Лации и предгорьях."
+        ),
+        StrategicRoadUpgrade(
+            id = "road_via_traiana",
+            nameRu = "Траянова дорога (Via Traiana)",
+            connectingProvincesRu = "Самний ➔ Великая Греция (Тарент)",
+            icon = "🏺",
+            costDenarii = 180,
+            isPaved = false,
+            speedAndSupplyBonusRu = "Морской и торговый коридор в Апулию. +35 🪙 за каждый сезон в казначейство."
+        )
+    )
 }
+
 

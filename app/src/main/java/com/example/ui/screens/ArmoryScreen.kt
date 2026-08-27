@@ -183,7 +183,7 @@ fun ArmoryScreen(
                                 )
                             )
                         }
-                        items(EquipmentType.entries) { type ->
+                        items(EquipmentType.entries, key = { it.name }) { type ->
                             val count = equipment.count { it.type == type }
                             FilterChip(
                                 selected = selectedTypeFilter == type,
@@ -202,7 +202,7 @@ fun ArmoryScreen(
             }
         }
 
-        items(filteredEquipment) { item ->
+        items(filteredEquipment, key = { it.id }) { item ->
             val equippedCohort = cohorts.find { it.id == item.equippedCohortId }
             EquipmentCard(
                 item = item,

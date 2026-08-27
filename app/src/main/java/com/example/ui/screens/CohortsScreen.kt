@@ -120,7 +120,7 @@ fun CohortsScreen(
             }
         }
 
-        items(cohorts) { cohort ->
+        items(cohorts, key = { it.id }) { cohort ->
             val isSelectedForTraining = seasonalPlan.trainCohortId == cohort.id
             val assignedCommander = commanders.find { it.id == cohort.assignedCommanderId }
             val missingSoldiers = cohort.maxSoldiers - cohort.soldiers

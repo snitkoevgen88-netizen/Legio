@@ -91,7 +91,7 @@ fun DoctrinesScreen(
             }
         }
 
-        items(doctrines) { doctrine ->
+        items(doctrines, key = { it.id }) { doctrine ->
             DoctrineCard(
                 doctrine = doctrine,
                 canAfford = resources.glory >= doctrine.costGlory,

@@ -37,6 +37,11 @@ data class GameUiState(
     val investments: List<ProvincialInvestment> = GameDefaults.createInitialInvestments(),
     val bankingState: RomanBankingState = RomanBankingState(),
     val marketState: MarketState = MarketState(),
+    val magistracyRank: MagistracyRank = MagistracyRank.TRIBUNUS_MILITUM,
+    val electionCampaign: RomanElectionCampaign = RomanElectionCampaign(targetRank = MagistracyRank.QUAESTOR),
+    val aquilaState: LegionAquilaState = LegionAquilaState(),
+    val strategicRoads: List<StrategicRoadUpgrade> = GameDefaults.createInitialStrategicRoads(),
+    val selectedProvince: StrategicProvince = StrategicProvince.LATIUM,
     val activeEvent: CampEvent? = null,
     val lastExpeditionResult: ExpeditionResult? = null,
     val showSeasonPlanDialog: Boolean = false,
@@ -1531,6 +1536,58 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         persistGameState()
     }
 
+    fun claimAllSenateQuests() {
+        val state = _uiState.value
+        val completedQuests = state.senateQuests.filter { it.isFinished && !it.isClaimed }
+        if (completedQuests.isEmpty()) return
+
+        val completedIds = completedQuests.map { it.id }.toSet()
+        var updatedQuests = state.senateQuests.map {
+            if (it.id in completedIds) it.copy(isClaimed = true) else it
+        }
+
+        val totalDenarii = completedQuests.sumOf { it.rewardDenarii }
+        val totalFavor = completedQuests.sumOf { it.rewardSenateFavor }
+        val totalGlory = completedQuests.sumOf { it.rewardGlory }
+
+        // Replenish new quests from dynamic pool
+        val existingIds = updatedQuests.map { it.id }.toSet()
+        val pool = GameDefaults.createDynamicQuestPool().filter { it.id !in existingIds }
+        val slotsNeeded = (6 - updatedQuests.count { !it.isClaimed }).coerceAtLeast(0)
+        val newQuestsToAdd = pool.take(slotsNeeded)
+        updatedQuests = updatedQuests + newQuestsToAdd
+
+        val chr = ChronicleEntry(
+            id = "chr_quests_all_${System.currentTimeMillis()}",
+            seasonFormatted = state.seasonYear.formatted,
+            yearBc = state.seasonYear.yearBc,
+            headlineRu = "🏛️ Сенат: Получены награды за ${completedQuests.size} поручений",
+            textRu = "Казна легиона разом пополнилась на +$totalDenarii денариев, авторитет в Курии вырос на +$totalFavor%, слава Республики +$totalGlory.",
+            outcome = ExpeditionOutcome.GREAT_VICTORY,
+            commanderName = "Сенат и Народ Рима",
+            cohortName = "Весь легион",
+            casualties = 0,
+            lootDenarii = totalDenarii,
+            lootProvisions = 0,
+            gloryEarned = totalGlory
+        )
+
+        SoundManager.playTriumphFanfare()
+        SoundManager.playCoins()
+        _uiState.update {
+            it.copy(
+                resources = it.resources.copy(
+                    denarii = it.resources.denarii + totalDenarii,
+                    senateFavor = min(100, it.resources.senateFavor + totalFavor),
+                    glory = it.resources.glory + totalGlory
+                ),
+                senateQuests = updatedQuests,
+                chronicles = listOf(chr) + it.chronicles
+            )
+        }
+        persistGameState()
+    }
+
     fun resolveSenatePetition(petitionId: String) {
         val state = _uiState.value
         val petition = state.senatePetitions.find { it.id == petitionId } ?: return
@@ -2638,4 +2695,295 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 "Катастрофа в горах! Внезапный конный фланговый налет врага разорвал когорту. Оставшиеся ветераны пробились сквозь кольцо окружения. Черный день для легиона! Потери: $casualties легионеров."
         }
     }
+
+    // ==========================================
+    // CURSUS HONORUM (ELECTIONS & PROMOTIONS)
+    // ==========================================
+
+    fun fundPlebeianGames() {
+        val state = _uiState.value
+        val cost = 40
+        if (state.resources.denarii < cost) return
+
+        val newPlebs = min(100, state.electionCampaign.plebeianSupportPct + 15)
+        val newGames = state.electionCampaign.gamesOrganizedCount + 1
+
+        SoundManager.playTriumphFanfare()
+        _uiState.update {
+            it.copy(
+                resources = it.resources.copy(
+                    denarii = it.resources.denarii - cost,
+                    glory = it.resources.glory + 2
+                ),
+                electionCampaign = it.electionCampaign.copy(
+                    plebeianSupportPct = newPlebs,
+                    gamesOrganizedCount = newGames
+                ),
+                cohorts = it.cohorts.map { coh -> coh.copy(morale = min(100, coh.morale + 10)) }
+            )
+        }
+        persistGameState()
+    }
+
+    fun bribePatricianSenators() {
+        val state = _uiState.value
+        val cost = 60
+        if (state.resources.denarii < cost) return
+
+        val newPatricians = min(100, state.electionCampaign.patricianSupportPct + 20)
+        val newBudget = state.electionCampaign.briberyBudgetSpent + cost
+
+        SoundManager.playCoins()
+        _uiState.update {
+            it.copy(
+                resources = it.resources.copy(
+                    denarii = it.resources.denarii - cost,
+                    senateFavor = min(100, it.resources.senateFavor + 8)
+                ),
+                electionCampaign = it.electionCampaign.copy(
+                    patricianSupportPct = newPatricians,
+                    briberyBudgetSpent = newBudget
+                )
+            )
+        }
+        persistGameState()
+    }
+
+    fun deliverForumSpeech() {
+        val state = _uiState.value
+        val newPlebs = min(100, state.electionCampaign.plebeianSupportPct + 8)
+        val newPatricians = min(100, state.electionCampaign.patricianSupportPct + 5)
+        val speeches = state.electionCampaign.speechesDelivered + 1
+
+        SoundManager.playWarHorn()
+        _uiState.update {
+            it.copy(
+                resources = it.resources.copy(glory = it.resources.glory + 1),
+                electionCampaign = it.electionCampaign.copy(
+                    plebeianSupportPct = newPlebs,
+                    patricianSupportPct = newPatricians,
+                    speechesDelivered = speeches
+                )
+            )
+        }
+        persistGameState()
+    }
+
+    fun holdCenturiateElection() {
+        val state = _uiState.value
+        val campaign = state.electionCampaign
+        val target = campaign.targetRank
+
+        if (!campaign.isReadyForVote) return
+        if (state.resources.glory < target.minGlory || state.resources.senateFavor < target.minSenateFavor) return
+
+        val currentRankIndex = target.ordinal
+        val nextRank = if (currentRankIndex + 1 < MagistracyRank.entries.size) {
+            MagistracyRank.entries[currentRankIndex + 1]
+        } else target
+
+        val chr = ChronicleEntry(
+            id = "chr_election_${System.currentTimeMillis()}",
+            seasonFormatted = state.seasonYear.formatted,
+            yearBc = state.seasonYear.yearBc,
+            headlineRu = "🏛️ Триумфальные Выборы в Комициях: ${target.titleRu} (${target.latinNameRu})!",
+            textRu = "Граждане и Сенат Рима отдали свои голоса! Полководец Legio IV облачается в ${target.togaTitleRu}. Привилегия: ${target.bonusSummaryRu}",
+            outcome = ExpeditionOutcome.GREAT_VICTORY,
+            commanderName = "Новый Магистрат Рима",
+            cohortName = "Comitia Centuriata",
+            casualties = 0,
+            lootDenarii = 0,
+            lootProvisions = 0,
+            gloryEarned = 15
+        )
+
+        SoundManager.playTriumphFanfare()
+        _uiState.update {
+            it.copy(
+                magistracyRank = target,
+                resources = it.resources.copy(glory = it.resources.glory + 15),
+                electionCampaign = RomanElectionCampaign(
+                    targetRank = nextRank,
+                    plebeianSupportPct = 50,
+                    patricianSupportPct = 50
+                ),
+                chronicles = listOf(chr) + it.chronicles
+            )
+        }
+        persistGameState()
+    }
+
+    // ==========================================
+    // OFFICER TALENTS & MILITARY CORONAS
+    // ==========================================
+
+    fun learnOfficerTalent(commanderId: String, talent: OfficerTalent) {
+        val state = _uiState.value
+        val cmd = state.commanders.find { it.id == commanderId } ?: return
+        if (cmd.unlockedTalents.contains(talent)) return
+        if (cmd.level < talent.levelReq) return
+
+        val costGlory = 8
+        if (state.resources.glory < costGlory) return
+
+        val updatedCmd = cmd.copy(
+            unlockedTalents = cmd.unlockedTalents + talent
+        )
+
+        val chr = ChronicleEntry(
+            id = "chr_talent_${System.currentTimeMillis()}",
+            seasonFormatted = state.seasonYear.formatted,
+            yearBc = state.seasonYear.yearBc,
+            headlineRu = "🎖️ Освоен военный талант: ${cmd.name} ➔ ${talent.titleRu}",
+            textRu = "Офицер ${cmd.name} постиг искусство «${talent.titleRu}» (${talent.branchRu}). Эффект: ${talent.perkRu}",
+            outcome = ExpeditionOutcome.VICTORY,
+            commanderName = cmd.name,
+            cohortName = "Офицерский корпус",
+            casualties = 0,
+            lootDenarii = 0,
+            lootProvisions = 0,
+            gloryEarned = 1
+        )
+
+        SoundManager.playSwordClash()
+        _uiState.update {
+            it.copy(
+                resources = it.resources.copy(glory = it.resources.glory - costGlory),
+                commanders = it.commanders.map { c -> if (c.id == commanderId) updatedCmd else c },
+                chronicles = listOf(chr) + it.chronicles
+            )
+        }
+        persistGameState()
+    }
+
+    fun awardMilitaryCorona(commanderId: String, corona: MilitaryCorona) {
+        val state = _uiState.value
+        val cmd = state.commanders.find { it.id == commanderId } ?: return
+        if (cmd.awardedCoronas.contains(corona)) return
+
+        val updatedCmd = cmd.copy(
+            awardedCoronas = cmd.awardedCoronas + corona
+        )
+
+        val chr = ChronicleEntry(
+            id = "chr_corona_${System.currentTimeMillis()}",
+            seasonFormatted = state.seasonYear.formatted,
+            yearBc = state.seasonYear.yearBc,
+            headlineRu = "👑 Торжественное награждение: ${corona.titleRu} (${corona.latinNameRu})!",
+            textRu = "Перед строем легиона центуриону ${cmd.name} вручен ${corona.titleRu}. Аура: ${corona.auraPerkRu}",
+            outcome = ExpeditionOutcome.GREAT_VICTORY,
+            commanderName = cmd.name,
+            cohortName = "Весь легион",
+            casualties = 0,
+            lootDenarii = 0,
+            lootProvisions = 0,
+            gloryEarned = 6
+        )
+
+        SoundManager.playTriumphFanfare()
+        _uiState.update {
+            it.copy(
+                resources = it.resources.copy(glory = it.resources.glory + 6),
+                commanders = it.commanders.map { c -> if (c.id == commanderId) updatedCmd else c },
+                chronicles = listOf(chr) + it.chronicles
+            )
+        }
+        persistGameState()
+    }
+
+    // ==========================================
+    // LEGION AQUILA & VEXILLUM CUSTOMIZATION
+    // ==========================================
+
+    fun upgradeAquilaShrineRelic() {
+        val state = _uiState.value
+        val aquila = state.aquilaState
+        val cost = aquila.upgradeCostDenarii
+        if (cost <= 0 || state.resources.denarii < cost) return
+
+        val newLevel = aquila.eagleUpgradeLevel + 1
+        val updatedAquila = aquila.copy(eagleUpgradeLevel = newLevel)
+
+        val chr = ChronicleEntry(
+            id = "chr_aquila_${System.currentTimeMillis()}",
+            seasonFormatted = state.seasonYear.formatted,
+            yearBc = state.seasonYear.yearBc,
+            headlineRu = "🦅 Освящение Орла Легиона (Aquila Martia Tier $newLevel)",
+            textRu = "Жрецы Марса освятили золотой штандарт легиона. Боевой дух всех манипул несокрушим!",
+            outcome = ExpeditionOutcome.GREAT_VICTORY,
+            commanderName = "Аквилифер (Aquilifer)",
+            cohortName = "Aedes Signorum",
+            casualties = 0,
+            lootDenarii = -cost,
+            lootProvisions = 0,
+            gloryEarned = 10
+        )
+
+        SoundManager.playTriumphFanfare()
+        _uiState.update {
+            it.copy(
+                resources = it.resources.copy(
+                    denarii = it.resources.denarii - cost,
+                    glory = it.resources.glory + 10
+                ),
+                aquilaState = updatedAquila,
+                chronicles = listOf(chr) + it.chronicles
+            )
+        }
+        persistGameState()
+    }
+
+    fun setVexillumColor(colorIndex: Int) {
+        _uiState.update {
+            it.copy(aquilaState = it.aquilaState.copy(selectedBannerColorIndex = colorIndex))
+        }
+    }
+
+    // ==========================================
+    // STRATEGIC MAP & VIA ROADS
+    // ==========================================
+
+    fun selectStrategicProvince(province: StrategicProvince) {
+        _uiState.update { it.copy(selectedProvince = province) }
+    }
+
+    fun paveStrategicRoad(roadId: String) {
+        val state = _uiState.value
+        val road = state.strategicRoads.find { it.id == roadId } ?: return
+        if (road.isPaved) return
+        if (state.resources.denarii < road.costDenarii) return
+
+        val updatedRoads = state.strategicRoads.map {
+            if (it.id == roadId) it.copy(isPaved = true) else it
+        }
+
+        val chr = ChronicleEntry(
+            id = "chr_road_${System.currentTimeMillis()}",
+            seasonFormatted = state.seasonYear.formatted,
+            yearBc = state.seasonYear.yearBc,
+            headlineRu = "🛣️ Проложен каменный тракт: ${road.nameRu}",
+            textRu = "Военные инженеры легиона замостили вулканическим базальтом тракт ${road.connectingProvincesRu}. Эффект: ${road.speedAndSupplyBonusRu}",
+            outcome = ExpeditionOutcome.VICTORY,
+            commanderName = "Префект лагеря (Praefectus Castrorum)",
+            cohortName = "Инженерный корпус",
+            casualties = 0,
+            lootDenarii = -road.costDenarii,
+            lootProvisions = 0,
+            gloryEarned = 4
+        )
+
+        SoundManager.playCoins()
+        _uiState.update {
+            it.copy(
+                resources = it.resources.copy(
+                    denarii = it.resources.denarii - road.costDenarii,
+                    glory = it.resources.glory + 4
+                ),
+                strategicRoads = updatedRoads,
+                chronicles = listOf(chr) + it.chronicles
+            )
+        }
+        persistGameState()
+    }
 }
+

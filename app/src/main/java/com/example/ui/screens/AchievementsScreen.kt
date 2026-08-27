@@ -86,7 +86,7 @@ fun AchievementsScreen(
             }
         }
 
-        items(achievements) { ach ->
+        items(achievements, key = { it.id }) { ach ->
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(10.dp),

@@ -30,6 +30,10 @@ fun ExpeditionsScreen(
     campLevel: Int,
     resources: LegionResources,
     seasonalPlan: SeasonalPlan,
+    selectedProvince: StrategicProvince = StrategicProvince.LATIUM,
+    strategicRoads: List<StrategicRoadUpgrade> = emptyList(),
+    onSelectProvince: (StrategicProvince) -> Unit = {},
+    onPaveRoad: (String) -> Unit = {},
     onCalculateOdds: (Expedition, Commander, Cohort, Tactics) -> BattleOddsPreview,
     onSetExpeditionPlan: (String?, String?, String?, Tactics) -> Unit,
     onSetTactics: (Tactics) -> Unit,
@@ -74,16 +78,72 @@ fun ExpeditionsScreen(
     ) {
         item {
             Text(
-                text = "🗺️ Военные кампании и экспедиции Республики",
+                text = "🗺️ Военные кампании и стратегическая карта Республики",
                 color = RomanGoldLight,
                 fontSize = 17.sp,
                 fontWeight = FontWeight.Bold
             )
             Text(
-                text = "Изучайте разведданные, выбирайте опытного командира и подбирайте тактику под вражеский строй.",
+                text = "Изучайте разведданные, выбирайте опытного командира, мостите военные дороги и подбирайте тактику под вражеский строй.",
                 color = RomanTextMuted,
                 fontSize = 12.sp
             )
+        }
+
+        // Strategic Interactive Map of Italy
+        item {
+            StrategicMapCanvas(
+                selectedProvince = selectedProvince,
+                roads = strategicRoads,
+                onSelectProvince = onSelectProvince
+            )
+        }
+
+        // Selected province summary card
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(10.dp),
+                colors = CardDefaults.cardColors(containerColor = RomanDarkSurfaceCard),
+                border = androidx.compose.foundation.BorderStroke(1.dp, RomanGoldDark)
+            ) {
+                Row(
+                    modifier = Modifier.padding(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(text = selectedProvince.icon, fontSize = 24.sp)
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Column {
+                        Text(
+                            text = "Провинция: ${selectedProvince.nameRu} (${selectedProvince.latinNameRu})",
+                            color = RomanGoldLight,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "Статус: ${selectedProvince.controlStatus} • Доход: ${selectedProvince.resourceYieldRu}",
+                            color = RomanTextGold,
+                            fontSize = 11.sp
+                        )
+                        Text(
+                            text = selectedProvince.descriptionRu,
+                            color = RomanTextMuted,
+                            fontSize = 10.sp
+                        )
+                    }
+                }
+            }
+        }
+
+        // Strategic Roads Upgrade Section
+        if (strategicRoads.isNotEmpty()) {
+            item {
+                StrategicRoadsSection(
+                    roads = strategicRoads,
+                    denarii = resources.denarii,
+                    onPaveRoad = onPaveRoad
+                )
+            }
         }
 
         // 1. Horizontal list of campaigns
@@ -93,7 +153,7 @@ fun ExpeditionsScreen(
             LazyRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                items(availableExpeditions) { exp ->
+                items(availableExpeditions, key = { it.id }) { exp ->
                     val isSelected = exp.id == selectedExpeditionId
                     val isSenate = exp.isSenateTrial
                     Card(
@@ -245,7 +305,7 @@ fun ExpeditionsScreen(
 
             // Commander Picker
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(livingCommanders) { cmd ->
+                items(livingCommanders, key = { it.id }) { cmd ->
                     val isCmdSelected = cmd.id == selectedCommanderId
                     Card(
                         modifier = Modifier
@@ -279,7 +339,7 @@ fun ExpeditionsScreen(
 
             // Cohort Picker
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(cohorts) { coh ->
+                items(cohorts, key = { it.id }) { coh ->
                     val isCohSelected = coh.id == selectedCohortId
                     Card(
                         modifier = Modifier

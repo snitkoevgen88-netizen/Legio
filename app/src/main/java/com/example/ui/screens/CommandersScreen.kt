@@ -92,7 +92,7 @@ fun CommandersScreen(
             }
         }
 
-        items(commanders) { commander ->
+        items(commanders, key = { it.id }) { commander ->
             Card(
                 modifier = Modifier
                     .fillMaxWidth()

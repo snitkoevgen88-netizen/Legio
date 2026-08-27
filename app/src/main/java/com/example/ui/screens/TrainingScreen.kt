@@ -184,7 +184,7 @@ fun TrainingScreen(
         }
 
         // List of unit types to allocate resources & train
-        items(unitAllocations) { allocation ->
+        items(unitAllocations, key = { it.unitType.name }) { allocation ->
             UnitTrainingCard(
                 allocation = allocation,
                 cohorts = cohorts,
