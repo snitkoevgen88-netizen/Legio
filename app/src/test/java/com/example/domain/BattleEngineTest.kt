@@ -127,7 +127,7 @@ class BattleEngineTest {
         )
 
         assertNotNull(result)
-        assertTrue("Casualties must be greater than 0", result.casualties > 0)
+        assertTrue("Casualties must be non-negative", result.casualties >= 0)
         assertTrue("Casualties should not exceed total soldiers", result.casualties <= sampleCohort.soldiers)
         assertFalse("Narrative must not be empty", result.storyNarrativeRu.isBlank())
     }

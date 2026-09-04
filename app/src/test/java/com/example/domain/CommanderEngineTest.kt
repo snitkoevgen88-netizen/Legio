@@ -19,7 +19,7 @@ class CommanderEngineTest {
             trait = CommanderTrait.TACTICIAN
         )
 
-        val leveledUp = CommanderEngine.awardXp(recruit, 150)
+        val (leveledUp, _) = CommanderEngine.awardXp(recruit, 150)
         assertEquals(2, leveledUp.level)
         assertEquals(50, leveledUp.xp)
         assertTrue(leveledUp.maxXp > 100)

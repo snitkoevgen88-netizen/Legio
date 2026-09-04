@@ -330,8 +330,12 @@ data class CompetingLegion(
     val id: String,
     val name: String,
     val ratingScore: Int,
-    val victories: Int,
-    val defeats: Int,
+    val glory: Int = 50,
+    val victories: Int = 2,
+    val defeats: Int = 1,
+    val senateReputation: Int = 50,
+    val commanderNameRu: String = "Легат Марк Валериан",
+    val commanderReputation: Int = 50,
     val currentActivityRu: String,
     val badgeSymbol: String
 )
@@ -385,6 +389,18 @@ data class CampEvent(
     val choices: List<CampEventChoice>
 )
 
+enum class AutoPlanPriority(
+    val titleRu: String,
+    val icon: String,
+    val descRu: String
+) {
+    BALANCED("Сбалансированный", "⚖️", "Равномерное развитие лагеря, умеренная выучка и безопасный поход."),
+    MILITARY("Военный триумф", "⚔️", "Приоритет на вооружение, тренировку ударных когорт и штурм опасных походов."),
+    ECONOMY("Экономика и запасы", "🌾", "Укрепление складов и мастерских, малозатратные патрули и накопление зерна."),
+    RECOVERY("Восстановление", "🏥", "Лечение раненых, пополнение манипул, подъем морали и осторожная оборона."),
+    POLITICS("Сенат и величие", "🏛️", "Выполнение наказов Сената, максимальный прирост Славы и подготовка к триумфу.")
+}
+
 @Immutable
 data class SeasonalPlan(
     val trainCohortId: String? = null,
@@ -392,7 +408,8 @@ data class SeasonalPlan(
     val launchedExpeditionId: String? = null,
     val selectedCommanderId: String? = null,
     val selectedCohortId: String? = null,
-    val selectedTactics: Tactics = Tactics.BALANCED
+    val selectedTactics: Tactics = Tactics.BALANCED,
+    val priority: AutoPlanPriority = AutoPlanPriority.BALANCED
 ) {
     fun hasAnyAction(): Boolean =
         trainCohortId != null || upgradeBuildingType != null || launchedExpeditionId != null
@@ -516,6 +533,24 @@ enum class QuestPriority(val titleRu: String, val badge: String, val colorHex: L
     SENATUS_CONSULTUM_ULTIMUM("Чрезвычайный декрет SPQR", "👑", 0xFFD32F2F)
 }
 
+enum class SenateQuestDecision(val titleRu: String, val icon: String, val descRu: String) {
+    ACCEPT("Принять эдикт", "✅", "Безоговорочно принять наказ Сената и приступить к исполнению."),
+    DECLINE("Отклонить приказ", "❌", "Отказаться от выполнения эдикта. Влечет политический штраф (-4 к Одобрению Сената)."),
+    NEGOTIATE("Торговаться с Сенатом", "⚖️", "Запросить аванс из казны (+35 🪙, +25 🌾), но цель усложняется на 20% с повышенной наградой."),
+    DELAY("Отсрочить исполнение", "⏳", "Попросить отсрочку на 2 сезона ценой дипломатической уступки (-2 к Одобрению).")
+}
+
+enum class QuestStatus {
+    AVAILABLE,
+    ACTIVE,
+    DECLINED,
+    NEGOTIATED,
+    DELAYED,
+    COMPLETED,
+    CLAIMED,
+    EXPIRED
+}
+
 @Immutable
 data class SenateQuest(
     val id: String,
@@ -530,6 +565,7 @@ data class SenateQuest(
     val currentProgress: Int = 0,
     val isCompleted: Boolean = false,
     val isClaimed: Boolean = false,
+    val status: QuestStatus = QuestStatus.ACTIVE,
     val category: QuestCategory = QuestCategory.SENATE_CAMPAIGN,
     val priority: QuestPriority = QuestPriority.STANDARD,
     val faction: SenateFaction = SenateFaction.OPTIMATES,
@@ -538,7 +574,8 @@ data class SenateQuest(
     val bonusPerkDescRu: String? = null,
     val actionHintRu: String? = null,
     val targetScreenHint: String? = null, // "EXPEDITIONS", "BUILDINGS", "TRAINING", "ARMORY", "ALTAR", "TREASURY"
-    val deadlineSeasonsRemaining: Int? = null
+    val deadlineSeasonsRemaining: Int? = null,
+    val isNegotiated: Boolean = false
 ) {
     val isFinished: Boolean get() = currentProgress >= targetCount
     val progressRatio: Float get() = if (targetCount > 0) (currentProgress.toFloat() / targetCount.toFloat()).coerceIn(0f, 1f) else 0f
@@ -1052,6 +1089,7 @@ data class LegionAquilaState(
     val eagleUpgradeLevel: Int = 1, // 1..3
     val totalSacredGlory: Int = 50,
     val isAquilaProtected: Boolean = true,
+    val isAquilaLost: Boolean = false,
     val selectedBannerColorIndex: Int = 0 // 0 = Crimson, 1 = Royal Purple, 2 = Gold, 3 = Black Iron
 ) {
     val upgradeCostDenarii: Int get() = when (eagleUpgradeLevel) {
@@ -1059,10 +1097,14 @@ data class LegionAquilaState(
         2 -> 240
         else -> 0
     }
-    val eaglePerkRu: String get() = when (eagleUpgradeLevel) {
-        1 -> "I: Золоченый бронзовый орел. +3 к морали всех когорт."
-        2 -> "II: Священный Орел с молниями Юпитера. +7 к морали, +2 к Славе за триумфы."
-        else -> "III: Непобедимая Святыня Рима. +15 к морали, когорты никогда не бегут в панике!"
+    val eaglePerkRu: String get() = if (isAquilaLost) {
+        "💀 ОРЕЛ ПОТЕРЯН: Позор легиона! -30 к морали всех когорт, гнев Сената Рима!"
+    } else {
+        when (eagleUpgradeLevel) {
+            1 -> "I: Золоченый бронзовый орел. +3 к морали всех когорт."
+            2 -> "II: Священный Орел с молниями Юпитера. +7 к морали, +2 к Славе за триумфы."
+            else -> "III: Непобедимая Святыня Рима. +15 к морали, когорты никогда не бегут в панике!"
+        }
     }
 }
 
@@ -1235,7 +1277,223 @@ data class GameUiState(
         resources.glory >= 40 -> RepublicRank.RECOGNIZED
         else -> RepublicRank.PROVINCIAL
     }
+
+    // Legion Identity & Vitals
+    val totalSoldiers: Int get() = cohorts.sumOf { it.soldiers }
+    val maxSoldiers: Int get() = cohorts.sumOf { it.maxSoldiers }
+    val strengthPercentage: Int get() = if (maxSoldiers > 0) ((totalSoldiers.toFloat() / maxSoldiers) * 100).toInt() else 0
+    val averageMorale: Int get() = if (cohorts.isNotEmpty()) cohorts.sumOf { it.morale } / cohorts.size else 80
+    val averageDiscipline: Int get() = if (cohorts.isNotEmpty()) cohorts.sumOf { it.discipline } / cohorts.size else 80
+    val totalVeterans: Int get() = cohorts.sumOf { it.veteransCount }
+
+    val legionEpithetRu: String get() = when {
+        resources.glory >= 160 -> "Pia Fidelis Invicta"
+        totalVictories >= 10 -> "Victrix"
+        totalGreatVictories >= 3 -> "Triumphalis"
+        resources.senateFavor >= 75 -> "Vindex Senatus"
+        campLevel >= 10 -> "Castrensis"
+        else -> "Martia"
+    }
+
+    val fullLegionNameRu: String get() = "Legio IV $legionEpithetRu"
+
+    fun generateLegionAlerts(): List<LegionAlert> {
+        val list = mutableListOf<LegionAlert>()
+
+        // 1. Critical casualties in cohorts
+        val damagedCohorts = cohorts.filter { it.soldiers < (it.maxSoldiers * 0.65f) }
+        if (damagedCohorts.isNotEmpty()) {
+            val names = damagedCohorts.joinToString(", ") { it.name }
+            list.add(
+                LegionAlert(
+                    id = "alert_casualties",
+                    severity = AlertSeverity.CRITICAL,
+                    icon = "🩸",
+                    titleRu = "Когорты требуют пополнения",
+                    descriptionRu = "Потери в отрядах ($names). Общая численность: $totalSoldiers/$maxSoldiers.",
+                    actionLabelRu = "Пополнить всех",
+                    targetScreen = "COHORTS",
+                    actionType = "REPLENISH_ALL"
+                )
+            )
+        }
+
+        // 2. Low denarii or grain reserves
+        if (resources.denarii < 35) {
+            list.add(
+                LegionAlert(
+                    id = "alert_low_denarii",
+                    severity = AlertSeverity.CRITICAL,
+                    icon = "🪙",
+                    titleRu = "Казна на исходе",
+                    descriptionRu = "В сундуках ${resources.denarii} денариев. Возможна задержка жалования.",
+                    actionLabelRu = "В банк / Рынок",
+                    targetScreen = "MARKET"
+                )
+            )
+        }
+        if (resources.provisions < 30) {
+            list.add(
+                LegionAlert(
+                    id = "alert_low_provisions",
+                    severity = AlertSeverity.WARNING,
+                    icon = "🌾",
+                    titleRu = "Истощение запасов зерна",
+                    descriptionRu = "Осталось ${resources.provisions} мер зерна. Скоро наступит голод.",
+                    actionLabelRu = "Купить провиант",
+                    targetScreen = "MARKET"
+                )
+            )
+        }
+
+        // 3. Senate Quests ready to claim
+        val claimableQuests = senateQuests.filter { it.isFinished && !it.isClaimed }
+        if (claimableQuests.isNotEmpty()) {
+            list.add(
+                LegionAlert(
+                    id = "alert_claimable_quests",
+                    severity = AlertSeverity.OPPORTUNITY,
+                    icon = "🏛️",
+                    titleRu = "Награда Сената готова к выдаче",
+                    descriptionRu = "Выполнен эдикт: «${claimableQuests.first().titleRu}» (+${claimableQuests.first().rewardDenarii} 🪙).",
+                    actionLabelRu = "В Курию",
+                    targetScreen = "SENATE",
+                    actionType = "CLAIM_QUEST"
+                )
+            )
+        }
+
+        // 4. Commander promotion ready
+        val promotableCommander = commanders.find { it.isAlive && it.xp >= it.maxXp }
+        if (promotableCommander != null) {
+            list.add(
+                LegionAlert(
+                    id = "alert_commander_promotion",
+                    severity = AlertSeverity.OPPORTUNITY,
+                    icon = "🎖️",
+                    titleRu = "Офицер готов к повышению",
+                    descriptionRu = "${promotableCommander.name} накопил боевой опыт и ждет назначения.",
+                    actionLabelRu = "К офицерам",
+                    targetScreen = "COMMANDERS"
+                )
+            )
+        }
+
+        // 5. Divine blessing
+        if (activeBlessing == null) {
+            list.add(
+                LegionAlert(
+                    id = "alert_no_blessing",
+                    severity = AlertSeverity.INFO,
+                    icon = "🕊️",
+                    titleRu = "Нет покровительства богов",
+                    descriptionRu = "Принесите жертву на алтаре Марса или Юпитера перед новым сезоном.",
+                    actionLabelRu = "К Алтарю",
+                    targetScreen = "ALTAR"
+                )
+            )
+        }
+
+        // 6. Cursus Honorum election ready
+        if (electionCampaign.isReadyForVote && !electionCampaign.isElected) {
+            list.add(
+                LegionAlert(
+                    id = "alert_election_ready",
+                    severity = AlertSeverity.OPPORTUNITY,
+                    icon = "👑",
+                    titleRu = "Выборы в Сенате: Голосование открыто",
+                    descriptionRu = "Поддержка патрициев и плебеев достаточна для избрания на должность.",
+                    actionLabelRu = "Голосовать",
+                    targetScreen = "ELECTIONS"
+                )
+            )
+        }
+
+        return list
+    }
+
+    // Domain state views
+    val calendarState: CalendarDomainState get() = CalendarDomainState(seasonYear, seasonalPlan)
+    val militaryState: MilitaryDomainState get() = MilitaryDomainState(commanders, cohorts, doctrines, equipment, unitAllocations, availableExpeditions)
+    val economyState: EconomyDomainState get() = EconomyDomainState(resources, buildings, marketState, bankingState, investments, strategicRoads)
+    val politicsState: PoliticsDomainState get() = PoliticsDomainState(senateQuests, senatePetitions, magistracyRank, electionCampaign, competingLegions)
+    val religionState: ReligionDomainState get() = ReligionDomainState(activeBlessing, rituals, trophies, aquilaState)
+    val progressionState: ProgressionDomainState get() = ProgressionDomainState(totalVictories, totalGreatVictories, totalDefeats, longestWinStreak, currentWinStreak, chronicles, achievements)
+    val worldState: WorldDomainState get() = WorldDomainState(selectedProvince, activeEvent, lastExpeditionResult)
 }
+
+enum class AlertSeverity(val badge: String, val colorHex: Long) {
+    CRITICAL("Критично", 0xFFD32F2F),
+    WARNING("Внимание", 0xFFFF9800),
+    OPPORTUNITY("Возможность", 0xFF4CAF50),
+    INFO("Вести", 0xFF1976D2)
+}
+
+@Immutable
+data class LegionAlert(
+    val id: String,
+    val severity: AlertSeverity,
+    val icon: String,
+    val titleRu: String,
+    val descriptionRu: String,
+    val actionLabelRu: String,
+    val targetScreen: String,
+    val actionType: String? = null
+)
+
+data class CalendarDomainState(
+    val seasonYear: SeasonYear,
+    val seasonalPlan: SeasonalPlan
+)
+
+data class MilitaryDomainState(
+    val commanders: List<Commander>,
+    val cohorts: List<Cohort>,
+    val doctrines: List<MilitaryDoctrine>,
+    val equipment: List<EquipmentItem>,
+    val unitAllocations: List<UnitTrainingAllocation>,
+    val availableExpeditions: List<Expedition>
+)
+
+data class EconomyDomainState(
+    val resources: LegionResources,
+    val buildings: List<Building>,
+    val marketState: MarketState,
+    val bankingState: RomanBankingState,
+    val investments: List<ProvincialInvestment>,
+    val strategicRoads: List<StrategicRoadUpgrade>
+)
+
+data class PoliticsDomainState(
+    val senateQuests: List<SenateQuest>,
+    val senatePetitions: List<SenatePetition>,
+    val magistracyRank: MagistracyRank,
+    val electionCampaign: RomanElectionCampaign,
+    val competingLegions: List<CompetingLegion>
+)
+
+data class ReligionDomainState(
+    val activeBlessing: ActiveBlessing?,
+    val rituals: List<DivineRitual>,
+    val trophies: List<LegionTrophy>,
+    val aquilaState: LegionAquilaState
+)
+
+data class ProgressionDomainState(
+    val totalVictories: Int,
+    val totalGreatVictories: Int,
+    val totalDefeats: Int,
+    val longestWinStreak: Int,
+    val currentWinStreak: Int,
+    val chronicles: List<ChronicleEntry>,
+    val achievements: List<Achievement>
+)
+
+data class WorldDomainState(
+    val selectedProvince: StrategicProvince,
+    val activeEvent: CampEvent?,
+    val lastExpeditionResult: ExpeditionResult?
+)
 
 
 

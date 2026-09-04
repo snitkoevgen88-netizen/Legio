@@ -140,15 +140,30 @@ fun LegioInvictaApp(viewModel: GameViewModel = viewModel()) {
                             commanders = uiState.commanders,
                             seasonalPlan = uiState.seasonalPlan,
                             activeBlessing = uiState.activeBlessing,
+                            senateQuests = uiState.senateQuests,
+                            doctrines = uiState.doctrines,
+                            aquilaState = uiState.aquilaState,
+                            totalVictories = uiState.totalVictories,
+                            totalGreatVictories = uiState.totalGreatVictories,
+                            totalDefeats = uiState.totalDefeats,
                             onOpenSeasonPlan = { viewModel.openSeasonPlanDialog() },
-                            onAutoPlanSeason = { viewModel.autoPlanSeason() },
+                            onAutoPlanSeason = { prio -> viewModel.autoPlanSeason(prio) },
                             onBuildingUpgrade = { bType -> viewModel.setPlanUpgradeBuilding(bType) },
+                            onReplenishAllCohorts = { viewModel.replenishAllCohorts() },
+                            onAutoEquipAll = { viewModel.autoEquipAll() },
                             onNavigateToCohorts = {
                                 mainCategory = MainCategory.LEGION
                                 legionSubTab = LegionSubTab.COHORTS
                             },
                             onNavigateToExpeditions = {
                                 mainCategory = MainCategory.EXPEDITIONS
+                            },
+                            onNavigateToSenate = {
+                                mainCategory = MainCategory.SENATE
+                            },
+                            onNavigateToCommanders = {
+                                mainCategory = MainCategory.LEGION
+                                legionSubTab = LegionSubTab.COMMANDERS
                             },
                             onNavigateToAltar = {
                                 castrumSubTab = CastrumSubTab.ALTAR
@@ -159,7 +174,15 @@ fun LegioInvictaApp(viewModel: GameViewModel = viewModel()) {
                             },
                             onNavigateToTraining = {
                                 castrumSubTab = CastrumSubTab.TRAINING
-                            }
+                            },
+                            onNavigateToMarket = {
+                                mainCategory = MainCategory.SENATE
+                            },
+                            onNavigateToChronicles = {
+                                mainCategory = MainCategory.TRIUMPHS
+                                triumphsSubTab = TriumphsSubTab.CHRONICLES
+                            },
+                            onClaimQuest = { questId -> viewModel.claimSenateQuest(questId) }
                         )
                         CastrumSubTab.BUILDINGS -> BuildingsScreen(
                             buildings = uiState.buildings,

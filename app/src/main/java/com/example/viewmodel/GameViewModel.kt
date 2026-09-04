@@ -5,6 +5,17 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.audio.SoundManager
 import com.example.data.*
+import com.example.domain.battle.BattleEngine
+import com.example.domain.cohorts.CohortEngine
+import com.example.domain.commanders.CommanderEngine
+import com.example.domain.economy.EconomyEngine
+import com.example.domain.equipment.EquipmentEngine
+import com.example.domain.events.EventEngine
+import com.example.domain.expeditions.ExpeditionEngine
+import com.example.domain.religion.ReligionEngine
+import com.example.domain.season.SeasonEngine
+import com.example.domain.senate.SenateEngine
+import com.example.domain.training.TrainingEngine
 import com.example.model.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -111,256 +122,60 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         cohort: Cohort,
         tactics: Tactics
     ): BattleOddsPreview {
-        var greatVictoryBase = 15
-        var victoryBase = 45
-        var partialBase = 25
-        var defeatBase = 12
-        var disasterBase = 3
-
         val state = _uiState.value
-        val unlockedDoctrines = state.doctrines.filter { it.isUnlocked }.map { it.id }.toSet()
-
-        // Equipped items on this cohort
-        val equippedItems = state.equipment.filter { it.isCrafted && it.equippedCohortId == cohort.id }
-        val eqAttack = equippedItems.sumOf { it.attackBonus }
-        val eqDefense = equippedItems.sumOf { it.defenseBonus }
-        val eqMorale = equippedItems.sumOf { it.moraleBonus }
-
-        // Commander trait adjustments
-        greatVictoryBase += commander.trait.victoryBonusChance
-        disasterBase += commander.trait.disasterRiskChange
-        victoryBase += (commander.level * 3)
-
-        // Cohort experience, equipment & veterans
-        victoryBase += (cohort.level * 4) + (cohort.veteransCount / 2) + (eqAttack / 2) + (eqDefense / 2)
-        defeatBase -= (cohort.discipline / 5) + (eqDefense / 2)
-        greatVictoryBase += (eqMorale / 10)
-
-        // DOCTRINES SYNERGIES
-        if (unlockedDoctrines.contains("doc_disciplina_ferrea")) {
-            victoryBase += 6
-            defeatBase -= 4
-            disasterBase = max(1, disasterBase - 3)
-        }
-        if (unlockedDoctrines.contains("doc_pilum_volley")) {
-            greatVictoryBase += 15
-            victoryBase += 5
-        }
-        if (unlockedDoctrines.contains("doc_testudo")) {
-            disasterBase = max(0, disasterBase - 8)
-            defeatBase = max(2, defeatBase - 6)
-            partialBase += 8
-        }
-        if (unlockedDoctrines.contains("doc_equites")) {
-            greatVictoryBase += 10
-            victoryBase += 6
-        }
-
-        // Tactics vs Enemy Intel synergy
-        when (tactics) {
-            Tactics.AGGRESSIVE -> {
-                greatVictoryBase += 20
-                disasterBase += 6
-                defeatBase += 4
-            }
-            Tactics.CAUTIOUS -> {
-                greatVictoryBase -= 10
-                disasterBase -= 8
-                partialBase += 15
-            }
-            Tactics.BALANCED -> {
-                victoryBase += 6
-            }
-            Tactics.TESTUDO -> {
-                disasterBase -= 12
-                defeatBase -= 8
-                partialBase += 12
-            }
-            Tactics.FLANK_AMBUSH -> {
-                greatVictoryBase += 25
-                disasterBase += 4
-                victoryBase -= 4
-            }
-        }
-
-        // Season effect (Summer boosts campaigns)
-        if (state.seasonYear.season == Season.SUMMER) {
-            victoryBase += 15
-            greatVictoryBase += 5
-        } else if (state.seasonYear.season == Season.WINTER) {
-            disasterBase = max(1, disasterBase - 4)
-        }
-
-        // Divine Blessing modifiers
-        when (state.activeBlessing?.god) {
-            GodType.MARS -> {
-                greatVictoryBase += 18
-                victoryBase += 8
-            }
-            GodType.JUPITER -> {
-                disasterBase = 0
-                victoryBase += 6
-            }
-            GodType.FORTUNA -> {
-                disasterBase = max(0, disasterBase - 12)
-                defeatBase = max(0, defeatBase - 8)
-                partialBase += 10
-            }
-            GodType.MINERVA -> {
-                victoryBase += 8
-            }
-            GodType.CERES -> {
-                // Ceres boosts logistics
-            }
-            null -> {}
-        }
-
-        // Trophies passive bonuses
-        val unlockedTrophies = state.trophies.filter { it.isUnlocked }.map { it.id }.toSet()
-        if (unlockedTrophies.contains("trophy_pyrrhic_phalanx_banner")) {
-            greatVictoryBase += 6
-        }
-        if (unlockedTrophies.contains("trophy_samnite_crest")) {
-            defeatBase = max(0, defeatBase - 4)
-            disasterBase = max(0, disasterBase - 4)
-        }
-
-        // Difficulty scaling
-        val diffPenalty = (expedition.difficulty - 1) * 8
-        victoryBase -= diffPenalty
-        greatVictoryBase -= (diffPenalty / 2)
-        defeatBase += (diffPenalty / 2)
-        disasterBase += (diffPenalty / 3)
-
-        // Clamp
-        greatVictoryBase = max(5, min(75, greatVictoryBase))
-        disasterBase = max(0, min(35, disasterBase))
-        val total = greatVictoryBase + victoryBase + partialBase + defeatBase + disasterBase
-        val gvPct = (greatVictoryBase * 100) / total
-        val vPct = (victoryBase * 100) / total
-        val pPct = (partialBase * 100) / total
-        val dPct = (defeatBase * 100) / total
-        val disPct = max(0, 100 - (gvPct + vPct + pPct + dPct))
-
-        val advice = when {
-            unlockedDoctrines.contains("doc_pilum_volley") && tactics == Tactics.AGGRESSIVE ->
-                "⚡ Залп пилумов сокрушит авангард врага при первой же атаке!"
-            unlockedDoctrines.contains("doc_testudo") && tactics == Tactics.TESTUDO ->
-                "🛡️ Стена щитов «Черепаха» отразит любые стрелы и сведет риск к минимуму."
-            commander.trait == CommanderTrait.BRAVE && tactics == Tactics.AGGRESSIVE ->
-                "⚔️ Марк Фабий пылает отвагой! Штурм принесет максимальный шанс триумфа."
-            commander.trait == CommanderTrait.CAUTIOUS && tactics == Tactics.CAUTIOUS ->
-                "🛡️ Гай Корнелий сомкнет щиты — риск гибели ветеранов сведен к минимуму."
-            expedition.isSenateTrial ->
-                "⚡ Приказ Сената чрезвычайно опасен! Требуется наивысшая дисциплина."
-            else ->
-                "⚖️ Манипулярный строй готов выполнить любой приказ центуриона."
-        }
-
-        return BattleOddsPreview(
-            greatVictoryPct = gvPct,
-            victoryPct = vPct,
-            partialPct = pPct,
-            defeatPct = dPct,
-            disasterPct = disPct,
-            adviceRu = advice
+        val campLevel = state.buildings.find { it.type == BuildingType.PRINCIPIA }?.level ?: 1
+        return BattleEngine.calculateBattleOdds(
+            expedition = expedition,
+            commander = commander,
+            cohort = cohort,
+            tactics = tactics,
+            campLevel = campLevel,
+            activeBlessing = state.activeBlessing,
+            doctrines = state.doctrines,
+            equipment = state.equipment
         )
     }
 
     // AUTO-ASSIST: Auto-select optimal squad and tactics for an expedition
-    fun autoSelectExpeditionSquad(expeditionId: String) {
+    fun autoSelectExpeditionSquad(expeditionId: String, priority: AutoPlanPriority = AutoPlanPriority.BALANCED) {
         val state = _uiState.value
         val expedition = state.availableExpeditions.find { it.id == expeditionId } ?: return
-        val livingCommanders = state.commanders.filter { it.isAlive }
-        if (livingCommanders.isEmpty()) return
-
-        // 1. Pick best commander
-        val bestCommander = livingCommanders.maxByOrNull { cmd ->
-            var score = cmd.level * 10
-            if (expedition.difficulty >= 4 && cmd.trait == CommanderTrait.CAUTIOUS) score += 20
-            if (expedition.difficulty <= 2 && cmd.trait == CommanderTrait.BRAVE) score += 20
-            if (expedition.rewardDenarii >= 120 && cmd.trait == CommanderTrait.GREEDY) score += 15
-            score
-        } ?: livingCommanders.first()
-
-        // 2. Pick best ready cohort
-        val bestCohort = state.cohorts.maxByOrNull { coh ->
-            coh.soldiers * 2 + coh.discipline * 3 + coh.veteransCount * 5
-        } ?: state.cohorts.first()
-
-        // 3. Pick optimal counter-tactics
-        val optimalTactics = when {
-            expedition.difficulty >= 4 -> Tactics.TESTUDO
-            expedition.scoutIntel.enemyTacticRu.contains("Засада", ignoreCase = true) -> Tactics.FLANK_AMBUSH
-            expedition.scoutIntel.enemyTacticRu.contains("Конный", ignoreCase = true) -> Tactics.TESTUDO
-            bestCommander.trait == CommanderTrait.BRAVE -> Tactics.AGGRESSIVE
-            bestCommander.trait == CommanderTrait.CAUTIOUS -> Tactics.CAUTIOUS
-            else -> Tactics.BALANCED
-        }
+        val (bestCommander, bestCohort, optimalTactics) = ExpeditionEngine.selectOptimalSquad(
+            expedition = expedition,
+            commanders = state.commanders,
+            cohorts = state.cohorts,
+            priority = priority
+        )
 
         _uiState.update {
             it.copy(
                 seasonalPlan = it.seasonalPlan.copy(
                     launchedExpeditionId = expedition.id,
-                    selectedCommanderId = bestCommander.id,
-                    selectedCohortId = bestCohort.id,
-                    selectedTactics = optimalTactics
+                    selectedCommanderId = bestCommander?.id,
+                    selectedCohortId = bestCohort?.id,
+                    selectedTactics = optimalTactics,
+                    priority = priority
                 )
             )
         }
         SoundManager.playWarHorn()
     }
 
-    // AUTO-ASSIST: Auto-plan season (Building + Training + Expedition)
-    fun autoPlanSeason() {
+    // AUTO-ASSIST: Auto-plan season with configurable strategic priority
+    fun autoPlanSeason(priority: AutoPlanPriority = AutoPlanPriority.BALANCED) {
         val state = _uiState.value
-        val res = state.resources
-        var plannedDenarii = res.denarii
-        var plannedProvisions = res.provisions
-
-        // 1. Auto-select building upgrade
-        val upgradableBuilding = state.buildings
-            .filter { it.level < it.maxLevel && plannedDenarii >= it.upgradeCostDenarii && plannedProvisions >= it.upgradeCostProvisions }
-            .minByOrNull { it.upgradeCostDenarii }
-
-        if (upgradableBuilding != null) {
-            plannedDenarii -= upgradableBuilding.upgradeCostDenarii
-            plannedProvisions -= upgradableBuilding.upgradeCostProvisions
-        }
-
-        // 2. Auto-select training cohort
-        val trainCohort = state.cohorts
-            .filter { it.soldiers >= 40 }
-            .minByOrNull { it.level }
-
-        val trainCost = if (state.seasonYear.season == Season.SPRING) 24 else 30
-        val hasTrainFunds = plannedDenarii >= trainCost && plannedProvisions >= 15
-        val selectedTrainCohortId = if (hasTrainFunds && trainCohort != null) {
-            plannedDenarii -= trainCost
-            plannedProvisions -= 15
-            trainCohort.id
-        } else null
-
-        // 3. Auto-select best expedition
-        val affordableExpeditions = state.availableExpeditions.filter {
-            plannedDenarii >= it.denariiCost && plannedProvisions >= it.provisionsCost
-        }
-        val bestExp = affordableExpeditions.maxByOrNull { it.rewardGlory }
-        val livingCommanders = state.commanders.filter { it.isAlive }
-        val bestCmd = livingCommanders.maxByOrNull { it.level }
-        val bestCoh = state.cohorts.maxByOrNull { it.soldiers }
-
+        val newPlan = ExpeditionEngine.generateSeasonalPlan(
+            priority = priority,
+            buildings = state.buildings,
+            cohorts = state.cohorts,
+            commanders = state.commanders,
+            expeditions = state.availableExpeditions,
+            resources = state.resources,
+            season = state.seasonYear.season,
+            doctrines = state.doctrines
+        )
         _uiState.update {
-            it.copy(
-                seasonalPlan = SeasonalPlan(
-                    trainCohortId = selectedTrainCohortId,
-                    upgradeBuildingType = upgradableBuilding?.type,
-                    launchedExpeditionId = bestExp?.id,
-                    selectedCommanderId = bestCmd?.id,
-                    selectedCohortId = bestCoh?.id,
-                    selectedTactics = if (bestExp != null && bestExp.difficulty >= 3) Tactics.TESTUDO else Tactics.BALANCED
-                )
-            )
+            it.copy(seasonalPlan = newPlan)
         }
         SoundManager.playWarHorn()
     }
@@ -368,23 +183,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     // AUTO-ASSIST: Auto-equip all cohorts with optimal crafted gear
     fun autoEquipAll() {
         val state = _uiState.value
-        val craftedItems = state.equipment.filter { it.isCrafted }
-        if (craftedItems.isEmpty() || state.cohorts.isEmpty()) return
-
-        val cohorts = state.cohorts
-        val updatedEquipment = state.equipment.map { item ->
-            if (!item.isCrafted) item
-            else {
-                // Distribute strategically by type
-                val assignedCohort = when (item.type) {
-                    EquipmentType.WEAPON -> cohorts.maxByOrNull { it.attackPower }
-                    EquipmentType.ARMOR, EquipmentType.HELMET, EquipmentType.SHIELD -> cohorts.minByOrNull { it.defensePower }
-                    EquipmentType.STANDARD, EquipmentType.ACCESSORY -> cohorts.maxByOrNull { it.veteransCount }
-                }
-                item.copy(equippedCohortId = assignedCohort?.id)
-            }
-        }
-
+        val updatedEquipment = EquipmentEngine.autoEquipAll(state.equipment, state.cohorts)
         SoundManager.playGladiusClash()
         _uiState.update { it.copy(equipment = updatedEquipment) }
         persistGameState()
@@ -393,21 +192,11 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     // AUTO-ASSIST: Replenish all cohorts at once
     fun replenishAllCohorts() {
         val state = _uiState.value
-        var curDenarii = state.resources.denarii
-        val updatedCohorts = state.cohorts.map { cohort ->
-            val missing = cohort.maxSoldiers - cohort.soldiers
-            if (missing > 0 && curDenarii >= missing) {
-                curDenarii -= missing
-                cohort.copy(soldiers = cohort.maxSoldiers, morale = 95)
-            } else {
-                cohort
-            }
-        }
-
+        val (updatedCohorts, updatedResources) = CohortEngine.replenishAll(state.cohorts, state.resources)
         SoundManager.playCoins()
         _uiState.update {
             it.copy(
-                resources = it.resources.copy(denarii = curDenarii),
+                resources = updatedResources,
                 cohorts = updatedCohorts
             )
         }
@@ -485,131 +274,58 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 curProvisions -= expedition.provisionsCost
 
                 val odds = calculateBattleOdds(expedition, commander, cohort, tactics)
-                val roll = Random.nextInt(100)
-
-                val outcome = when {
-                    roll < odds.greatVictoryPct -> ExpeditionOutcome.GREAT_VICTORY
-                    roll < (odds.greatVictoryPct + odds.victoryPct) -> ExpeditionOutcome.VICTORY
-                    roll < (odds.greatVictoryPct + odds.victoryPct + odds.partialPct) -> ExpeditionOutcome.PARTIAL_SUCCESS
-                    roll < (odds.greatVictoryPct + odds.victoryPct + odds.partialPct + odds.defeatPct) -> ExpeditionOutcome.DEFEAT
-                    else -> ExpeditionOutcome.DISASTER
-                }
-
-                // Calculate spoils & casualties
                 val fabricaLevel = updatedBuildings.find { it.type == BuildingType.FABRICA }?.level ?: 1
                 val valetudinariumLevel = updatedBuildings.find { it.type == BuildingType.VALETUDINARIUM }?.level ?: 1
-                val unlockedDoctrines = state.doctrines.filter { it.isUnlocked }.map { it.id }.toSet()
+                val campLevel = updatedBuildings.find { it.type == BuildingType.PRINCIPIA }?.level ?: 1
 
-                // Equipped gear mitigation
-                val cohortEquipped = state.equipment.filter { it.isCrafted && it.equippedCohortId == cohort.id }
-                val gearCasReductionPct = cohortEquipped.sumOf { it.casualtyReductionPct }
+                val res = BattleEngine.resolveBattle(
+                    expedition = expedition,
+                    commander = commander,
+                    cohort = cohort,
+                    tactics = tactics,
+                    odds = odds,
+                    campLevel = campLevel,
+                    fabricaLevel = fabricaLevel,
+                    valetudinariumLevel = valetudinariumLevel,
+                    doctrines = state.doctrines,
+                    equipment = state.equipment
+                )
 
-                val baseCasualties = when (outcome) {
-                    ExpeditionOutcome.GREAT_VICTORY -> Random.nextInt(0, 4)
-                    ExpeditionOutcome.VICTORY -> Random.nextInt(4, 12)
-                    ExpeditionOutcome.PARTIAL_SUCCESS -> Random.nextInt(10, 20)
-                    ExpeditionOutcome.DEFEAT -> Random.nextInt(18, 32)
-                    ExpeditionOutcome.DISASTER -> Random.nextInt(35, 55)
-                }
-
-                // Fabrica armor mitigation + Iron discipline doctrine + Gear
-                var mitigatedCas = max(0, baseCasualties - (fabricaLevel * 2))
-                if (unlockedDoctrines.contains("doc_disciplina_ferrea")) {
-                    mitigatedCas = (mitigatedCas * 0.8f).toInt()
-                }
-                if (gearCasReductionPct > 0) {
-                    mitigatedCas = max(0, (mitigatedCas * (1f - gearCasReductionPct / 100f)).toInt())
-                }
-
-                // Valetudinarium wounded treated + Field medics doctrine
-                val healRatio = (valetudinariumLevel * 0.2f) + (if (unlockedDoctrines.contains("doc_medici_castrorum")) 0.35f else 0f)
-                val woundedTreated = (mitigatedCas * healRatio).toInt()
-                val netCasualties = max(0, mitigatedCas - woundedTreated)
-                val veteransSaved = if (valetudinariumLevel >= 2 || unlockedDoctrines.contains("doc_medici_castrorum")) 2 else 0
-
-                var lootMultiplier = when (outcome) {
-                    ExpeditionOutcome.GREAT_VICTORY -> 1.5f + (if (commander.trait == CommanderTrait.AMBITIOUS) 0.3f else 0f)
-                    ExpeditionOutcome.VICTORY -> 1.1f + (if (commander.trait == CommanderTrait.GREEDY) 0.4f else 0f)
-                    ExpeditionOutcome.PARTIAL_SUCCESS -> 0.6f
-                    ExpeditionOutcome.DEFEAT -> 0.15f
-                    ExpeditionOutcome.DISASTER -> 0.0f
-                }
-                if (unlockedDoctrines.contains("doc_equites") && outcome.isSuccess) {
-                    lootMultiplier += 0.2f
-                }
-                if (unlockedDoctrines.contains("doc_art_tormentorum") && expedition.difficulty >= 3 && outcome.isSuccess) {
-                    lootMultiplier += 0.35f
-                }
-
-                val lootDenarii = (expedition.rewardDenarii * lootMultiplier).toInt()
-                val lootProvisions = (expedition.rewardProvisions * lootMultiplier).toInt()
-                val gloryDelta = outcome.gloryDelta + (if (expedition.isSenateTrial && outcome.isSuccess) 15 else 0)
+                val outcome = res.outcome
+                val netCasualties = res.casualties
+                val lootDenarii = res.lootDenarii
+                val lootProvisions = res.lootProvisions
+                val gloryDelta = res.gloryDelta + (if (expedition.isSenateTrial && outcome.isSuccess) 15 else 0)
 
                 curDenarii += lootDenarii
                 curProvisions += lootProvisions
                 curGlory = max(0, curGlory + gloryDelta)
                 if (outcome.isSuccess) curSenate = min(100, curSenate + 6) else curSenate = max(0, curSenate - 8)
 
-                val xpEarned = when (outcome) {
-                    ExpeditionOutcome.GREAT_VICTORY -> 60
-                    ExpeditionOutcome.VICTORY -> 40
-                    ExpeditionOutcome.PARTIAL_SUCCESS -> 20
-                    ExpeditionOutcome.DEFEAT -> 10
-                    ExpeditionOutcome.DISASTER -> 5
-                }
+                val xpEarned = res.xpEarned
 
-                // Update Cohort stats
+                // Update Cohort stats via CohortEngine / result
                 val cIndex = updatedCohorts.indexOfFirst { it.id == cohort.id }
                 if (cIndex != -1) {
-                    val currentSoldiers = max(15, cohort.soldiers - netCasualties)
-                    val newTotalVictories = if (outcome.isSuccess) cohort.victoriesCount + 1 else cohort.victoriesCount
-                    val newGreatVictories = if (outcome == ExpeditionOutcome.GREAT_VICTORY) cohort.greatVictoriesCount + 1 else cohort.greatVictoriesCount
-                    val newDefeats = if (!outcome.isSuccess) cohort.defeatsCount + 1 else cohort.defeatsCount
-
-                    var newTradition: String? = null
-                    val tradList = cohort.traditions.toMutableList()
-                    if (outcome == ExpeditionOutcome.GREAT_VICTORY && !tradList.contains("Победители ${expedition.regionRu}")) {
-                        newTradition = "Победители ${expedition.regionRu}"
-                        tradList.add(newTradition)
-                    } else if (newTotalVictories >= 5 && !tradList.contains("Железный строй")) {
-                        newTradition = "Железный строй"
-                        tradList.add(newTradition)
-                    }
-
-                    updatedCohorts[cIndex] = cohort.copy(
-                        soldiers = currentSoldiers,
-                        xp = (cohort.xp + xpEarned) % cohort.maxXp,
-                        level = cohort.level + ((cohort.xp + xpEarned) / cohort.maxXp),
-                        expeditionsCount = cohort.expeditionsCount + 1,
-                        victoriesCount = newTotalVictories,
-                        greatVictoriesCount = newGreatVictories,
-                        defeatsCount = newDefeats,
-                        casualtiesSuffered = cohort.casualtiesSuffered + netCasualties,
-                        traditions = tradList
-                    )
+                    val updatedCoh = CohortEngine.awardBattleExperience(res.cohort, xpEarned, outcome.isSuccess)
+                    updatedCohorts[cIndex] = updatedCoh
                 }
 
-                // Update Commander stats
+                // Update Commander stats via CommanderEngine
                 val cmdIndex = updatedCommanders.indexOfFirst { it.id == commander.id }
                 var commanderPromoted = false
-                val commanderKilled = outcome == ExpeditionOutcome.DISASTER && Random.nextInt(100) < 25
 
                 if (cmdIndex != -1) {
                     val cmd = updatedCommanders[cmdIndex]
-                    val newCmdXp = cmd.xp + xpEarned
-                    val newCmdLevel = if (newCmdXp >= cmd.maxXp) cmd.level + 1 else cmd.level
-                    if (newCmdLevel > cmd.level && (newCmdLevel == 4 || newCmdLevel == 7)) {
-                        commanderPromoted = true
-                    }
-                    updatedCommanders[cmdIndex] = cmd.copy(
-                        level = newCmdLevel,
-                        xp = newCmdXp % cmd.maxXp,
-                        expeditionsLed = cmd.expeditionsLed + 1,
-                        victoriesCount = if (outcome.isSuccess) cmd.victoriesCount + 1 else cmd.victoriesCount,
-                        greatVictoriesCount = if (outcome == ExpeditionOutcome.GREAT_VICTORY) cmd.greatVictoriesCount + 1 else cmd.greatVictoriesCount,
-                        defeatsCount = if (!outcome.isSuccess) cmd.defeatsCount + 1 else cmd.defeatsCount,
-                        isAlive = !commanderKilled,
-                        moodStatus = if (commanderKilled) "Погиб с честью на поле боя" else if (outcome.isSuccess) "Празднует победу в претории" else "Хмуро разбирает ошибки похода"
+                    val (xpCmd, wasPromoted) = CommanderEngine.awardXp(cmd, xpEarned)
+                    commanderPromoted = wasPromoted
+                    updatedCommanders[cmdIndex] = xpCmd.copy(
+                        expeditionsLed = xpCmd.expeditionsLed + 1,
+                        victoriesCount = if (outcome.isSuccess) xpCmd.victoriesCount + 1 else xpCmd.victoriesCount,
+                        greatVictoriesCount = if (outcome == ExpeditionOutcome.GREAT_VICTORY) xpCmd.greatVictoriesCount + 1 else xpCmd.greatVictoriesCount,
+                        defeatsCount = if (!outcome.isSuccess) xpCmd.defeatsCount + 1 else xpCmd.defeatsCount,
+                        isAlive = !res.commanderKilled,
+                        moodStatus = if (res.commanderKilled) "Погиб с честью на поле боя" else if (outcome.isSuccess) "Празднует победу в претории" else "Хмуро разбирает ошибки похода"
                     )
                 }
 
@@ -629,22 +345,9 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
                 val narrative = generateBattleNarrative(expedition, commander, cohort, tactics, outcome, netCasualties, lootDenarii)
 
-                battleResult = ExpeditionResult(
-                    expedition = expedition,
-                    commander = commander,
-                    cohort = cohort,
-                    tactics = tactics,
-                    outcome = outcome,
-                    casualties = netCasualties,
-                    veteransSaved = veteransSaved,
-                    woundedTreated = woundedTreated,
-                    lootDenarii = lootDenarii,
-                    lootProvisions = lootProvisions,
+                battleResult = res.copy(
                     gloryDelta = gloryDelta,
-                    xpEarned = xpEarned,
                     commanderPromoted = commanderPromoted,
-                    newTradition = null,
-                    commanderKilled = commanderKilled,
                     storyNarrativeRu = narrative
                 )
 
@@ -1289,6 +992,61 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             )
         }
         persistGameState()
+    }
+
+    /**
+     * Handles decision on a Senate quest (ACCEPT, DECLINE, NEGOTIATE, DELAY).
+     */
+    fun handleSenateQuestDecision(questId: String, decision: SenateQuestDecision) {
+        val state = _uiState.value
+        val quest = state.senateQuests.find { it.id == questId } ?: return
+
+        val (updatedQuest, updatedResources) = SenateEngine.handleQuestDecision(quest, decision, state.resources)
+        val updatedQuests = state.senateQuests.map { if (it.id == questId) updatedQuest else it }
+
+        when (decision) {
+            SenateQuestDecision.ACCEPT -> SoundManager.playWarHorn()
+            SenateQuestDecision.DECLINE -> SoundManager.playDrumBeat()
+            SenateQuestDecision.NEGOTIATE -> SoundManager.playCoins()
+            SenateQuestDecision.DELAY -> SoundManager.playDrumBeat()
+        }
+
+        _uiState.update {
+            it.copy(
+                senateQuests = updatedQuests,
+                resources = updatedResources
+            )
+        }
+        persistGameState()
+    }
+
+    /**
+     * Replenishes cohort casualties with recruits.
+     * «Потери требуют денариев и зерна для восстановления.»
+     */
+    fun replenishCohortManually(cohortId: String, recruitsCount: Int = 10) {
+        val state = _uiState.value
+        val cohort = state.cohorts.find { it.id == cohortId } ?: return
+        val campLevel = state.buildings.find { it.type == BuildingType.PRINCIPIA }?.level ?: 1
+
+        val result = EconomyEngine.replenishCohort(
+            cohort = cohort,
+            recruitsCount = recruitsCount,
+            resources = state.resources,
+            campLevel = campLevel,
+            hasPopularesDiscount = state.resources.senateFavor < 40 // Populares sympathizers provide cheaper recruits
+        )
+
+        if (result.isSuccess) {
+            SoundManager.playWarHorn()
+            _uiState.update {
+                it.copy(
+                    cohorts = it.cohorts.map { c -> if (c.id == cohortId) result.updatedState else c },
+                    resources = result.updatedResources
+                )
+            }
+            persistGameState()
+        }
     }
 
     fun resolveSenatePetition(petitionId: String) {

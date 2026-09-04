@@ -1,5 +1,7 @@
 package com.example.domain.season
 
+import com.example.domain.economy.EconomyEngine
+import com.example.domain.senate.SenateEngine
 import com.example.model.*
 import kotlin.math.max
 import kotlin.math.min
@@ -23,6 +25,7 @@ object SeasonEngine {
 
     /**
      * Advances the game state by one season (Spring -> Summer -> Autumn -> Winter -> Spring).
+     * Integrates army maintenance, infrastructure yield, banking interest, competing legions and event logic.
      */
     fun advanceSeason(
         currentState: GameUiState
@@ -37,49 +40,7 @@ object SeasonEngine {
             yearBc = nextYearBc
         )
 
-        // 1. Calculate building yields
-        var baseDenariiGain = 35
-        var baseProvisionsGain = 40
-
-        currentState.buildings.forEach { bld ->
-            when (bld.type) {
-                BuildingType.PRINCIPIA -> baseDenariiGain += bld.level * 8
-                BuildingType.CAMPUS_MARTIUS -> baseDenariiGain += bld.level * 4
-                BuildingType.HORREUM -> baseProvisionsGain += bld.level * 18
-                BuildingType.FABRICA -> baseDenariiGain += bld.level * 5
-                BuildingType.VALETUDINARIUM -> baseProvisionsGain += bld.level * 4
-                BuildingType.TABULARIUM -> baseDenariiGain += bld.level * 10
-                BuildingType.THERMAE_LEGIONIS -> {}
-                BuildingType.AQUILA_SHRINE -> {}
-                BuildingType.CASTRA_EQUITUM -> baseDenariiGain += bld.level * 4
-                BuildingType.BALLISTARIUM -> {}
-                BuildingType.SPECULA -> {}
-            }
-        }
-
-        // Season-specific bonuses
-        when (newSeasonYear.season) {
-            Season.SPRING -> baseDenariiGain += 15
-            Season.SUMMER -> baseDenariiGain += 25
-            Season.AUTUMN -> baseProvisionsGain += 60 // Harvest
-            Season.WINTER -> {
-                baseProvisionsGain = (baseProvisionsGain * 0.7f).toInt()
-                baseDenariiGain = (baseDenariiGain * 0.8f).toInt()
-            }
-        }
-
-        // 2. Investment yields
-        var investmentDenarii = 0
-        var investmentProvisions = 0
-        var investmentGlory = 0
-
-        currentState.investments.forEach { inv ->
-            investmentDenarii += inv.currentYieldDenarii
-            investmentProvisions += inv.currentYieldProvisions
-            investmentGlory += inv.currentYieldGlory
-        }
-
-        // 3. Upgrades from Seasonal Plan
+        // 1. Upgrades from Seasonal Plan
         val updatedBuildings = currentState.buildings.map { bld ->
             if (currentState.seasonalPlan.upgradeBuildingType == bld.type && bld.level < bld.maxLevel) {
                 bld.copy(level = bld.level + 1)
@@ -88,13 +49,27 @@ object SeasonEngine {
             }
         }
 
-        // 4. Cohort replenishment & food consumption
-        var totalSoldiers = 0
+        // 2. Calculate Gross Yields & Maintenance via EconomyEngine
+        val yield = EconomyEngine.calculateSeasonalYield(
+            buildings = updatedBuildings,
+            investments = currentState.investments,
+            seasonYear = newSeasonYear,
+            senateFavor = currentState.resources.senateFavor,
+            doctrines = currentState.doctrines
+        )
+
+        val maintenance = EconomyEngine.calculateMaintenance(
+            cohorts = currentState.cohorts,
+            commanders = currentState.commanders,
+            buildings = updatedBuildings,
+            doctrines = currentState.doctrines
+        )
+
+        // 3. Cohort replenishment & experience
         val updatedCohorts = currentState.cohorts.map { cohort ->
-            totalSoldiers += cohort.soldiers
             val isTargetTraining = currentState.seasonalPlan.trainCohortId == cohort.id
             val soldiersGained = if (cohort.soldiers < cohort.maxSoldiers) {
-                val recoverySpeed = if (isTargetTraining) 14 else 8
+                val recoverySpeed = if (isTargetTraining) 14 else 6
                 min(cohort.maxSoldiers - cohort.soldiers, recoverySpeed)
             } else 0
 
@@ -108,9 +83,7 @@ object SeasonEngine {
             )
         }
 
-        val grainConsumed = (totalSoldiers * 0.35f).toInt()
-
-        // 5. Banking interest & loan repayment
+        // 4. Banking interest & loan repayment
         var bankingState = currentState.bankingState
         var loanPaymentDeducted = 0
         var interestEarned = 0
@@ -134,10 +107,14 @@ object SeasonEngine {
             )
         }
 
-        // 6. Resources calculation
-        val netDenarii = max(0, currentState.resources.denarii + baseDenariiGain + investmentDenarii - loanPaymentDeducted)
-        val netProvisions = max(0, currentState.resources.provisions + baseProvisionsGain + investmentProvisions - grainConsumed)
-        val netGlory = currentState.resources.glory + investmentGlory
+        // 5. Net Resources calculation (Income - Maintenance - Loans)
+        val grossDenarii = currentState.resources.denarii + yield.totalDenariiIncome
+        val netDenarii = max(0, grossDenarii - maintenance.netDenariiMaintenance - loanPaymentDeducted)
+
+        val grossProvisions = currentState.resources.provisions + yield.totalProvisionsIncome
+        val netProvisions = max(0, grossProvisions - maintenance.netProvisionsConsumed)
+
+        val netGlory = currentState.resources.glory + yield.totalGloryIncome
 
         val updatedResources = currentState.resources.copy(
             denarii = netDenarii,
@@ -145,24 +122,22 @@ object SeasonEngine {
             glory = netGlory
         )
 
-        // 7. Competing Legions AI update
-        val updatedCompetingLegions = currentState.competingLegions.map { legion ->
-            val aiWins = Random.nextBoolean()
-            val scoreDelta = if (aiWins) Random.nextInt(15, 35) else Random.nextInt(-10, 10)
-            legion.copy(
-                ratingScore = max(100, legion.ratingScore + scoreDelta),
-                victories = if (aiWins) legion.victories + 1 else legion.victories,
-                defeats = if (!aiWins) legion.defeats + 1 else legion.defeats
-            )
-        }.sortedByDescending { it.ratingScore }
+        // 6. Competing Legions AI update via SenateEngine
+        val updatedCompetingLegions = SenateEngine.updateCompetingLegions(
+            currentLegions = currentState.competingLegions,
+            playerGlory = updatedResources.glory,
+            playerVictories = currentState.commanders.sumOf { it.victoriesCount },
+            playerSenateFavor = updatedResources.senateFavor,
+            seasonNumber = nextSeasonNumber
+        )
 
-        // 8. Active Blessing duration
+        // 7. Active Blessing duration countdown
         val updatedBlessing = currentState.activeBlessing?.let { blessing ->
             val remaining = blessing.seasonsRemaining - 1
             if (remaining > 0) blessing.copy(seasonsRemaining = remaining) else null
         }
 
-        // 9. Random Seasonal Event
+        // 8. Random Seasonal Event
         val eventList = listOf(
             CampEvent(
                 id = "evt_harvest_bounty",
@@ -232,7 +207,7 @@ object SeasonEngine {
 
         val generatedEvent = if (Random.nextInt(100) < 65) eventList.random() else null
 
-        val summary = "Наступил ${newSeasonYear.formatted}. Доход: +${baseDenariiGain + investmentDenarii} 🪙, +${baseProvisionsGain + investmentProvisions} 🌾. Расход зерна: -$grainConsumed 🌾."
+        val summary = "Наступил ${newSeasonYear.formatted}. Доход: +${yield.totalDenariiIncome} 🪙, +${yield.totalProvisionsIncome} 🌾. Содержание армии: -${maintenance.netDenariiMaintenance} 🪙, -${maintenance.netProvisionsConsumed} 🌾."
 
         return SeasonAdvanceResult(
             newSeasonYear = newSeasonYear,
