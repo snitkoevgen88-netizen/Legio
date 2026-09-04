@@ -1,6 +1,7 @@
 package com.example.model
 
 import androidx.compose.runtime.Immutable
+import com.example.data.GameDefaults
 
 enum class Season(val titleRu: String, val icon: String, val effectDescRu: String) {
     SPRING("Весна", "🌱", "Сбор новобранцев. Снижена стоимость тренировок на 20%."),
@@ -1179,5 +1180,62 @@ data class StrategicRoadUpgrade(
     val isPaved: Boolean = false,
     val speedAndSupplyBonusRu: String
 )
+
+@Immutable
+data class GameUiState(
+    val seasonYear: SeasonYear = SeasonYear(seasonIndex = 0, seasonNumber = 1, yearBc = 315),
+    val resources: LegionResources = LegionResources(denarii = 250, provisions = 180, glory = 25, senateFavor = 55),
+    val commanders: List<Commander> = GameDefaults.createInitialCommanders(),
+    val cohorts: List<Cohort> = GameDefaults.createInitialCohorts(),
+    val buildings: List<Building> = GameDefaults.createInitialBuildings(),
+    val availableExpeditions: List<Expedition> = GameDefaults.getAllExpeditions(),
+    val competingLegions: List<CompetingLegion> = GameDefaults.createInitialCompetingLegions(),
+    val chronicles: List<ChronicleEntry> = GameDefaults.createInitialChronicle(),
+    val achievements: List<Achievement> = GameDefaults.createInitialAchievements(),
+    val doctrines: List<MilitaryDoctrine> = GameDefaults.createInitialDoctrines(),
+    val equipment: List<EquipmentItem> = GameDefaults.createInitialEquipment(),
+    val senateQuests: List<SenateQuest> = GameDefaults.createInitialSenateQuests(),
+    val senatePetitions: List<SenatePetition> = GameDefaults.createInitialPetitions(),
+    val unitAllocations: List<UnitTrainingAllocation> = GameDefaults.createInitialUnitAllocations(),
+    val seasonalPlan: SeasonalPlan = SeasonalPlan(),
+    val activeBlessing: ActiveBlessing? = null,
+    val rituals: List<DivineRitual> = GameDefaults.createInitialRituals(),
+    val trophies: List<LegionTrophy> = GameDefaults.createInitialTrophies(),
+    val investments: List<ProvincialInvestment> = GameDefaults.createInitialInvestments(),
+    val bankingState: RomanBankingState = RomanBankingState(),
+    val marketState: MarketState = MarketState(),
+    val magistracyRank: MagistracyRank = MagistracyRank.TRIBUNUS_MILITUM,
+    val electionCampaign: RomanElectionCampaign = RomanElectionCampaign(targetRank = MagistracyRank.QUAESTOR),
+    val aquilaState: LegionAquilaState = LegionAquilaState(),
+    val strategicRoads: List<StrategicRoadUpgrade> = GameDefaults.createInitialStrategicRoads(),
+    val selectedProvince: StrategicProvince = StrategicProvince.LATIUM,
+    val activeEvent: CampEvent? = null,
+    val lastExpeditionResult: ExpeditionResult? = null,
+    val showSeasonPlanDialog: Boolean = false,
+    val showBattleResultDialog: Boolean = false,
+    val showEventDialog: Boolean = false,
+    val showGoldenAgeDialog: Boolean = false,
+    val totalVictories: Int = 3,
+    val totalGreatVictories: Int = 1,
+    val totalDefeats: Int = 0,
+    val longestWinStreak: Int = 3,
+    val currentWinStreak: Int = 3,
+    val isSoundEnabled: Boolean = true
+) {
+    val campLevel: Int get() = buildings.sumOf { it.level }
+    val campRank: CampRank get() = when {
+        campLevel >= 14 -> CampRank.GRAND_CITADEL
+        campLevel >= 9 -> CampRank.CASTRA_LEGIONIS
+        campLevel >= 5 -> CampRank.FORTIFIED_OUTPOST
+        else -> CampRank.FIELD_BIVOUAC
+    }
+    val republicRank: RepublicRank get() = when {
+        resources.glory >= 160 -> RepublicRank.INVICTA
+        resources.glory >= 90 -> RepublicRank.RENOWNED
+        resources.glory >= 40 -> RepublicRank.RECOGNIZED
+        else -> RepublicRank.PROVINCIAL
+    }
+}
+
 
 

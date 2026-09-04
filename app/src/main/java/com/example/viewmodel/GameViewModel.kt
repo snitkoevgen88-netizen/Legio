@@ -15,64 +15,9 @@ import kotlin.math.max
 import kotlin.math.min
 import kotlin.random.Random
 
-data class GameUiState(
-    val seasonYear: SeasonYear = SeasonYear(seasonIndex = 0, seasonNumber = 1, yearBc = 315),
-    val resources: LegionResources = LegionResources(denarii = 250, provisions = 180, glory = 25, senateFavor = 55),
-    val commanders: List<Commander> = GameDefaults.createInitialCommanders(),
-    val cohorts: List<Cohort> = GameDefaults.createInitialCohorts(),
-    val buildings: List<Building> = GameDefaults.createInitialBuildings(),
-    val availableExpeditions: List<Expedition> = GameDefaults.getAllExpeditions(),
-    val competingLegions: List<CompetingLegion> = GameDefaults.createInitialCompetingLegions(),
-    val chronicles: List<ChronicleEntry> = GameDefaults.createInitialChronicle(),
-    val achievements: List<Achievement> = GameDefaults.createInitialAchievements(),
-    val doctrines: List<MilitaryDoctrine> = GameDefaults.createInitialDoctrines(),
-    val equipment: List<EquipmentItem> = GameDefaults.createInitialEquipment(),
-    val senateQuests: List<SenateQuest> = GameDefaults.createInitialSenateQuests(),
-    val senatePetitions: List<SenatePetition> = GameDefaults.createInitialPetitions(),
-    val unitAllocations: List<UnitTrainingAllocation> = GameDefaults.createInitialUnitAllocations(),
-    val seasonalPlan: SeasonalPlan = SeasonalPlan(),
-    val activeBlessing: ActiveBlessing? = null,
-    val rituals: List<DivineRitual> = GameDefaults.createInitialRituals(),
-    val trophies: List<LegionTrophy> = GameDefaults.createInitialTrophies(),
-    val investments: List<ProvincialInvestment> = GameDefaults.createInitialInvestments(),
-    val bankingState: RomanBankingState = RomanBankingState(),
-    val marketState: MarketState = MarketState(),
-    val magistracyRank: MagistracyRank = MagistracyRank.TRIBUNUS_MILITUM,
-    val electionCampaign: RomanElectionCampaign = RomanElectionCampaign(targetRank = MagistracyRank.QUAESTOR),
-    val aquilaState: LegionAquilaState = LegionAquilaState(),
-    val strategicRoads: List<StrategicRoadUpgrade> = GameDefaults.createInitialStrategicRoads(),
-    val selectedProvince: StrategicProvince = StrategicProvince.LATIUM,
-    val activeEvent: CampEvent? = null,
-    val lastExpeditionResult: ExpeditionResult? = null,
-    val showSeasonPlanDialog: Boolean = false,
-    val showBattleResultDialog: Boolean = false,
-    val showEventDialog: Boolean = false,
-    val showGoldenAgeDialog: Boolean = false,
-    val totalVictories: Int = 3,
-    val totalGreatVictories: Int = 1,
-    val totalDefeats: Int = 0,
-    val longestWinStreak: Int = 3,
-    val currentWinStreak: Int = 3,
-    val isSoundEnabled: Boolean = true
-) {
-    val campLevel: Int get() = buildings.sumOf { it.level }
-    val campRank: CampRank get() = when {
-        campLevel >= 14 -> CampRank.GRAND_CITADEL
-        campLevel >= 9 -> CampRank.CASTRA_LEGIONIS
-        campLevel >= 5 -> CampRank.FORTIFIED_OUTPOST
-        else -> CampRank.FIELD_BIVOUAC
-    }
-    val republicRank: RepublicRank get() = when {
-        resources.glory >= 160 -> RepublicRank.INVICTA
-        resources.glory >= 90 -> RepublicRank.RENOWNED
-        resources.glory >= 40 -> RepublicRank.RECOGNIZED
-        else -> RepublicRank.PROVINCIAL
-    }
-}
-
 class GameViewModel(application: Application) : AndroidViewModel(application) {
     private val database = AppDatabase.getInstance(application)
-    private val dao = database.legionDao()
+    private val repository = GameRepository(database)
 
     private val _uiState = MutableStateFlow(GameUiState())
     val uiState: StateFlow<GameUiState> = _uiState.asStateFlow()
@@ -83,242 +28,18 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun loadSavedGame() {
         viewModelScope.launch(Dispatchers.IO) {
-            val stateEntity = dao.getGameState().firstOrNull()
-            if (stateEntity != null) {
-                val cmdEntities = dao.getCommanders().firstOrNull() ?: emptyList()
-                val cohEntities = dao.getCohorts().firstOrNull() ?: emptyList()
-                val bldEntities = dao.getBuildings().firstOrNull() ?: emptyList()
-                val legEntities = dao.getCompetingLegions().firstOrNull() ?: emptyList()
-                val chrEntities = dao.getChronicles().firstOrNull() ?: emptyList()
-                val achEntities = dao.getAchievements().firstOrNull() ?: emptyList()
-
-                val loadedCommanders = if (cmdEntities.isNotEmpty()) {
-                    cmdEntities.map { entity ->
-                        Commander(
-                            id = entity.id,
-                            name = entity.name,
-                            level = entity.level,
-                            xp = entity.xp,
-                            maxXp = entity.maxXp,
-                            trait = CommanderTrait.entries.find { it.name == entity.traitName } ?: CommanderTrait.BRAVE,
-                            avatarSkinTone = entity.avatarSkinTone,
-                            hairStyle = entity.hairStyle,
-                            helmetType = entity.helmetType,
-                            beardStyle = entity.beardStyle,
-                            cloakColorIndex = entity.cloakColorIndex,
-                            expeditionsLed = entity.expeditionsLed,
-                            victoriesCount = entity.victoriesCount,
-                            greatVictoriesCount = entity.greatVictoriesCount,
-                            defeatsCount = entity.defeatsCount,
-                            isAlive = entity.isAlive,
-                            moodStatus = entity.moodStatus
-                        )
-                    }
-                } else GameDefaults.createInitialCommanders()
-
-                val loadedCohorts = if (cohEntities.isNotEmpty()) {
-                    cohEntities.map { entity ->
-                        Cohort(
-                            id = entity.id,
-                            name = entity.name,
-                            level = entity.level,
-                            xp = entity.xp,
-                            maxXp = entity.maxXp,
-                            soldiers = entity.soldiers,
-                            maxSoldiers = entity.maxSoldiers,
-                            veteransCount = entity.veteransCount,
-                            morale = entity.morale,
-                            attackPower = entity.attackPower,
-                            defensePower = entity.defensePower,
-                            discipline = entity.discipline,
-                            expeditionsCount = entity.expeditionsCount,
-                            victoriesCount = entity.victoriesCount,
-                            greatVictoriesCount = entity.greatVictoriesCount,
-                            defeatsCount = entity.defeatsCount,
-                            casualtiesSuffered = entity.casualtiesSuffered,
-                            assignedCommanderId = entity.assignedCommanderId,
-                            traditions = entity.traditionsJoined.split(",").filter { it.isNotBlank() }
-                        )
-                    }
-                } else GameDefaults.createInitialCohorts()
-
-                val loadedBuildings = if (bldEntities.isNotEmpty()) {
-                    bldEntities.mapNotNull { entity ->
-                        val bType = BuildingType.entries.find { it.name == entity.typeName } ?: return@mapNotNull null
-                        Building(type = bType, level = entity.level)
-                    }
-                } else GameDefaults.createInitialBuildings()
-
-                val loadedLegions = if (legEntities.isNotEmpty()) {
-                    legEntities.map {
-                        CompetingLegion(
-                            id = it.id,
-                            name = it.name,
-                            ratingScore = it.ratingScore,
-                            victories = it.victories,
-                            defeats = it.defeats,
-                            currentActivityRu = it.currentActivityRu,
-                            badgeSymbol = it.badgeSymbol
-                        )
-                    }
-                } else GameDefaults.createInitialCompetingLegions()
-
-                val loadedChronicles = if (chrEntities.isNotEmpty()) {
-                    chrEntities.map {
-                        ChronicleEntry(
-                            id = it.id,
-                            seasonFormatted = it.seasonFormatted,
-                            yearBc = it.yearBc,
-                            headlineRu = it.headlineRu,
-                            textRu = it.textRu,
-                            outcome = it.outcomeName?.let { name -> ExpeditionOutcome.entries.find { o -> o.name == name } },
-                            commanderName = it.commanderName,
-                            cohortName = it.cohortName,
-                            casualties = it.casualties,
-                            lootDenarii = it.lootDenarii,
-                            lootProvisions = it.lootProvisions,
-                            gloryEarned = it.gloryEarned,
-                            traditionUnlocked = it.traditionUnlocked
-                        )
-                    }
-                } else GameDefaults.createInitialChronicle()
-
-                val loadedAchievements = if (achEntities.isNotEmpty()) {
-                    achEntities.map {
-                        Achievement(
-                            id = it.id,
-                            titleRu = it.titleRu,
-                            descRu = it.descRu,
-                            icon = it.icon,
-                            bonusPerkRu = it.bonusPerkRu,
-                            isUnlocked = it.isUnlocked
-                        )
-                    }
-                } else GameDefaults.createInitialAchievements()
-
-                _uiState.update {
-                    it.copy(
-                        seasonYear = SeasonYear(
-                            seasonIndex = stateEntity.seasonIndex,
-                            seasonNumber = stateEntity.seasonNumber,
-                            yearBc = stateEntity.yearBc
-                        ),
-                        resources = LegionResources(
-                            denarii = stateEntity.denarii,
-                            provisions = stateEntity.provisions,
-                            glory = stateEntity.glory,
-                            senateFavor = stateEntity.senateFavor
-                        ),
-                        commanders = loadedCommanders,
-                        cohorts = loadedCohorts,
-                        buildings = loadedBuildings,
-                        competingLegions = loadedLegions,
-                        chronicles = loadedChronicles,
-                        achievements = loadedAchievements,
-                        totalVictories = stateEntity.totalVictories,
-                        totalGreatVictories = stateEntity.totalGreatVictories,
-                        totalDefeats = stateEntity.totalDefeats,
-                        longestWinStreak = stateEntity.longestWinStreak,
-                        currentWinStreak = stateEntity.currentWinStreak
-                    )
-                }
+            val snapshot = repository.loadSnapshot()
+            if (snapshot != null) {
+                val loadedState = snapshot.toUiState()
+                _uiState.value = loadedState
             }
         }
     }
 
     private fun persistGameState() {
-        val s = _uiState.value
+        val currentState = _uiState.value
         viewModelScope.launch(Dispatchers.IO) {
-            dao.saveGameState(
-                GameStateEntity(
-                    seasonIndex = s.seasonYear.seasonIndex,
-                    seasonNumber = s.seasonYear.seasonNumber,
-                    yearBc = s.seasonYear.yearBc,
-                    denarii = s.resources.denarii,
-                    provisions = s.resources.provisions,
-                    glory = s.resources.glory,
-                    senateFavor = s.resources.senateFavor,
-                    campLevel = s.campLevel,
-                    totalVictories = s.totalVictories,
-                    totalGreatVictories = s.totalGreatVictories,
-                    totalDefeats = s.totalDefeats,
-                    longestWinStreak = s.longestWinStreak,
-                    currentWinStreak = s.currentWinStreak
-                )
-            )
-
-            dao.saveCommanders(s.commanders.map {
-                CommanderEntity(
-                    id = it.id,
-                    name = it.name,
-                    level = it.level,
-                    xp = it.xp,
-                    maxXp = it.maxXp,
-                    traitName = it.trait.name,
-                    avatarSkinTone = it.avatarSkinTone,
-                    hairStyle = it.hairStyle,
-                    helmetType = it.helmetType,
-                    beardStyle = it.beardStyle,
-                    cloakColorIndex = it.cloakColorIndex,
-                    expeditionsLed = it.expeditionsLed,
-                    victoriesCount = it.victoriesCount,
-                    greatVictoriesCount = it.greatVictoriesCount,
-                    defeatsCount = it.defeatsCount,
-                    isAlive = it.isAlive,
-                    moodStatus = it.moodStatus
-                )
-            })
-
-            dao.saveCohorts(s.cohorts.map {
-                CohortEntity(
-                    id = it.id,
-                    name = it.name,
-                    level = it.level,
-                    xp = it.xp,
-                    maxXp = it.maxXp,
-                    soldiers = it.soldiers,
-                    maxSoldiers = it.maxSoldiers,
-                    veteransCount = it.veteransCount,
-                    morale = it.morale,
-                    attackPower = it.attackPower,
-                    defensePower = it.defensePower,
-                    discipline = it.discipline,
-                    expeditionsCount = it.expeditionsCount,
-                    victoriesCount = it.victoriesCount,
-                    greatVictoriesCount = it.greatVictoriesCount,
-                    defeatsCount = it.defeatsCount,
-                    casualtiesSuffered = it.casualtiesSuffered,
-                    assignedCommanderId = it.assignedCommanderId,
-                    traditionsJoined = it.traditions.joinToString(",")
-                )
-            })
-
-            dao.saveBuildings(s.buildings.map {
-                BuildingEntity(typeName = it.type.name, level = it.level)
-            })
-
-            dao.saveCompetingLegions(s.competingLegions.map {
-                CompetingLegionEntity(
-                    id = it.id,
-                    name = it.name,
-                    ratingScore = it.ratingScore,
-                    victories = it.victories,
-                    defeats = it.defeats,
-                    currentActivityRu = it.currentActivityRu,
-                    badgeSymbol = it.badgeSymbol
-                )
-            })
-
-            dao.saveAchievements(s.achievements.map {
-                AchievementEntity(
-                    id = it.id,
-                    titleRu = it.titleRu,
-                    descRu = it.descRu,
-                    icon = it.icon,
-                    bonusPerkRu = it.bonusPerkRu,
-                    isUnlocked = it.isUnlocked
-                )
-            })
+            repository.saveSnapshot(currentState.toSnapshot())
         }
     }
 
@@ -943,24 +664,6 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                     gloryEarned = gloryDelta
                 )
                 updatedChronicles.add(0, newChr)
-                viewModelScope.launch(Dispatchers.IO) { dao.saveChronicle(
-                    ChronicleEntity(
-                        id = newChr.id,
-                        timestamp = System.currentTimeMillis(),
-                        seasonFormatted = newChr.seasonFormatted,
-                        yearBc = newChr.yearBc,
-                        headlineRu = newChr.headlineRu,
-                        textRu = newChr.textRu,
-                        outcomeName = newChr.outcome?.name,
-                        commanderName = newChr.commanderName,
-                        cohortName = newChr.cohortName,
-                        casualties = newChr.casualties,
-                        lootDenarii = newChr.lootDenarii,
-                        lootProvisions = newChr.lootProvisions,
-                        gloryEarned = newChr.gloryEarned,
-                        traditionUnlocked = newChr.traditionUnlocked
-                    )
-                ) }
             }
         }
 
@@ -2985,5 +2688,25 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         }
         persistGameState()
     }
+
+    /**
+     * Resets current campaign and initializes a fresh game session.
+     */
+    fun startNewGame() {
+        viewModelScope.launch(Dispatchers.IO) {
+            repository.clearAllData()
+            val freshState = GameUiState()
+            _uiState.value = freshState
+            repository.saveSnapshot(freshState.toSnapshot())
+        }
+    }
+
+    /**
+     * Manually forces an atomic persistence of current state.
+     */
+    fun saveGameManually() {
+        persistGameState()
+    }
 }
+
 
